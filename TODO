@@ -1,0 +1,6 @@
+* decrement strategy, bisect each byte
+* offset strategy (decrement a byte, see if i can move adjacent bytes closer)
+* enable/disable each strategy
+* testing
+* generate trees for sample cases
+* at least spawn one success job?

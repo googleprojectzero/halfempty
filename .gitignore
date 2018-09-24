@@ -1,0 +1,7 @@
+*.sw?
+*.o
+*.out
+*.in
+halfempty
+halfempty.out
+monitor.h

@@ -52,7 +52,7 @@ static void configure_child_limits(gpointer userdata)
     }
 
     // Try to cleanup if we get killed.
-    prctl(PR_SET_PDEATHSIG, SIGKILL);
+    prctl(PR_SET_PDEATHSIG, kKillFailedWorkersSignal);
 
     // Make sure we create a new pgrp so that we can kill all subprocesses.
     setpgid(0, 0);

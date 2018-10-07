@@ -22,7 +22,9 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
@@ -50,8 +52,10 @@ static void configure_child_limits(gpointer userdata)
         }
     }
 
+#ifdef __linux__
     // Try to cleanup if we get killed.
     prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
 
     // Make sure we create a new pgrp so that we can kill all subprocesses.
     setpgid(0, 0);

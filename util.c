@@ -171,6 +171,12 @@ gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
     return sendfile(outfd, infd, &offset, count) == count;
 }
 
+// A more convenient wrapper for splice.
+gssize g_splice(gint infd, goffset offset, gint outfd, gsize count)
+{
+    return splice(infd, &offset, outfd, NULL, count, 0);
+}
+
 // Empty log handler to silence messages.
 void g_log_null_handler(const gchar *log_domain, GLogLevelFlags log_level, const gchar *message, gpointer user_data)
 {

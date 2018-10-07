@@ -35,6 +35,7 @@
 
 #include "proc.h"
 #include "flags.h"
+#include "util.h"
 
 // This file is part of halfempty - a fast, parallel testcase minimization tool.
 //
@@ -84,7 +85,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
     g_debug("starting splice(%d, %lu, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
 
     while (size > 0) {
-        result = splice(datafd, &dataoffset, pipefd, NULL, size, 0);
+        result = g_splice(datafd, dataoffset, pipefd, size);
 
         // g_debug("splice(%d, %u, %d, NULL, %u, 0) => %d", datafd, dataoffset, pipefd, size, result);
 

@@ -215,7 +215,11 @@ gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
 // A more convenient wrapper for splice.
 gssize g_splice(gint infd, goffset offset, gint outfd, gsize count)
 {
+#ifdef __linux__
     return splice(infd, &offset, outfd, NULL, count, 0);
+#else
+    return g_sendfile(outfd, infd, offset, count);
+#endif
 }
 
 // Empty log handler to silence messages.

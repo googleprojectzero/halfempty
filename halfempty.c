@@ -65,12 +65,12 @@ static const GOptionEntry kDebugOptions[] = {
 };
 
 static const GOptionEntry kProcessOptions[] = {
-    { "no-terminate", 'k', G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kKillFailedWorkers, "Dont terminate tests early if possible (default=terminate).", NULL },
+    { "no-terminate", 'k', G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kKillFailedWorkers, "Don't terminate tests early if possible (default=terminate).", NULL },
     { "term-signal", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kKillFailedWorkersSignal, "Signal to send discarded workers (default=15).", "signal" },
     { "timeout", 'T', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kMaxProcessTime, "Maximum child execution time (default=unlimited).", "seconds" },
     { "limit", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, decode_proc_limit, "Configure a child limit (ex. RLIMIT_CPU=60).", "RLIMIT_RESOURCE=N" },
-    { "inherit-stdout", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kSilenceChildStdout, "Dont redirect child stdout to /dev/null (default=redirect)", NULL },
-    { "inherit-stderr", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kSilenceChildStderr, "Dont redirect child stderr to /dev/null (default=redirect)", NULL },
+    { "inherit-stdout", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kSilenceChildStdout, "Don't redirect child stdout to /dev/null (default=redirect)", NULL },
+    { "inherit-stderr", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kSilenceChildStderr, "Don't redirect child stderr to /dev/null (default=redirect)", NULL },
     { NULL },
 };
 
@@ -78,8 +78,8 @@ static const GOptionEntry kStandardOptions[] = {
     { "output", 'o', G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &kOutputFile, "Location to store minimized output (default=halfempty.out).", "filename" },
     { "stable", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kIterateUntilStable, "Re-run strategies until the result is stable (default=false).", NULL },
     { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kQuiet, "Minimize all informational messages, try to only print errors (default=false).", NULL },
-    { "continue", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kContinueSearch, "Dont exit when finished, keep trying until interrupted (default=false).", NULL },
-    { "noverify", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kVerifyInput, "Dont verify original input (faster, but can cause confusing errors) (default=false).", NULL },
+    { "continue", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kContinueSearch, "Don't exit when finished, keep trying until interrupted (default=false).", NULL },
+    { "noverify", 0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &kVerifyInput, "Don't verify original input (faster, but can cause confusing errors) (default=false).", NULL },
     { "monitor", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kMonitorMode, "Run dot (if installed) to monitor progress in your web browser (default=false).", NULL },
     { NULL },
 };

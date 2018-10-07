@@ -48,7 +48,7 @@
 //
 // The major complication in the mechanics of this is that we need to know if
 // the parent node succeeded or failed. If it succeeded then we just removed a
-// chunk and dont need to increment offset. If it failed, then we need to make
+// chunk and don't need to increment offset. If it failed, then we need to make
 // sure that chunk goes back.
 //
 
@@ -63,7 +63,7 @@ static gboolean kSkipEmpty = false;
 static gint kSkipThreshold = 0;
 
 static const GOptionEntry kBisectOptions[] = {
-    { "bisect-skip-empty", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kSkipEmpty, "Dont try to test empty input.", NULL },
+    { "bisect-skip-empty", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kSkipEmpty, "Don't try to test empty input.", NULL },
     { "bisect-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kSkipThreshold, "Skip truncated chunks smaller than this.", "bytes" },
     { NULL },
 };
@@ -90,7 +90,7 @@ static task_t * strategy_bisect_data(GNode *node)
     task_t *parent = node->data;        // The task above us in the tree.
     task_t *source = parent;            // Where we get our data from.
 
-    // We dont hold the lock on parent, but user data will never change.
+    // We don't hold the lock on parent, but user data will never change.
     bisect_t *parentstatus  = parent->user;
     bisect_t *childstatus   = g_new0(bisect_t, 1);
 
@@ -133,7 +133,7 @@ static task_t * strategy_bisect_data(GNode *node)
                 childstatus->offset,
                 childstatus->offset + childstatus->chunksize);
 
-        //  *If* the parent succeeded, then we increment offset, otherwise we dont need to.
+        //  *If* the parent succeeded, then we increment offset, otherwise we don't need to.
         // TODO: what if offset now >= size?
         childstatus->offset += childstatus->chunksize;
     } else {
@@ -179,7 +179,7 @@ static task_t * strategy_bisect_data(GNode *node)
     // OK, we can do a bisection now.
     child->fd = g_unlinked_tmp(NULL);
 
-    // I dont think this is possible.
+    // I don't think this is possible.
     if (childstatus->offset > source->size)
         goto nochildunlock;
 

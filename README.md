@@ -92,7 +92,7 @@ gzip -dc
 if test $? -eq 139; then
     exit 0 # We want this input
 else
-    exit 1 # We dont want this input
+    exit 1 # We don't want this input
 fi
 ```
 

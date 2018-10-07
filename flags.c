@@ -25,7 +25,7 @@
 // This file contains global knobs that can be controlled via command line options.
 //
 
-// Maximumum number of unprocessed workunits before we stop generating more.
+// Maximum number of unprocessed workunits before we stop generating more.
 // Each of these consumes a file descriptor, so cannot be infinite. Large
 // numbers might speed up minimizing very slow files, otherwise keep it small.
 // The problem is if you set this too high, we might go down the wrong path too

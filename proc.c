@@ -21,7 +21,6 @@
 #include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-#include <sys/sendfile.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <stdbool.h>

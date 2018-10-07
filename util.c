@@ -68,21 +68,57 @@ void g_clearline(void)
     }
 }
 
+static gboolean tree_depth_helper(GNode *node, gpointer data)
+{
+    guint *maxdepth = (guint*)data;
+
+    if (g_node_depth(node) > *maxdepth)
+        *maxdepth = g_node_depth(node);
+    return false;
+}
+
 // Find the depth of the deepest node in the tree.
 guint find_maximum_depth(GNode *root)
 {
     guint maxdepth = 0;
 
-    gboolean tree_depth_helper(GNode *node, gpointer data)
-    {
-        if (g_node_depth(node) > maxdepth)
-            maxdepth = g_node_depth(node);
-        return false;
-    }
-
-    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, tree_depth_helper, NULL);
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, tree_depth_helper, &maxdepth);
 
     return maxdepth;
+}
+
+static gboolean draw_tree_helper(GNode *node, gpointer user)
+{
+    FILE *out = (FILE*)user;
+    task_t *data = node->data;
+    static const gchar *taskcolor[] = {
+        [TASK_STATUS_FAILURE] = "red",
+        [TASK_STATUS_SUCCESS] = "green",
+        [TASK_STATUS_PENDING] = "orange",
+        [TASK_STATUS_DISCARDED] = "grey",
+    };
+
+    if (data) {
+        if (data->status == TASK_STATUS_DISCARDED && kSimplifyDotFile) {
+            // Simplify the graph by ignoring discarded branches.
+            return false;
+        }
+        fprintf(out, "\"%p\" [label=\"%lu bytes\" style=filled fillcolor=%s];\n",
+                     node,
+                     data->size,
+                     taskcolor[data->status]);
+    }
+
+    if (node->children) {
+        if (node->children->data) {
+            fprintf(out, " \"%p\" -> \"%p\" [label=\"Failure\"];\n", node, node->children);
+        }
+        if (node->children->next && node->children->next->data) {
+            fprintf(out, " \"%p\" -> \"%p\" [label=\"Success\"];\n", node, node->children->next);
+        }
+    }
+
+    return false;
 }
 
 // Generate a DOT file from the specified binary tree.
@@ -97,45 +133,12 @@ gboolean generate_dot_tree(GNode *root, gchar *filename)
 
     fprintf(out, "digraph tree { node [fontname=Arial];\n");
 
-    gboolean draw_tree_helper(GNode *node, gpointer user)
-    {
-        task_t *data = node->data;
-        static const gchar *taskcolor[] = {
-            [TASK_STATUS_FAILURE] = "red",
-            [TASK_STATUS_SUCCESS] = "green",
-            [TASK_STATUS_PENDING] = "orange",
-            [TASK_STATUS_DISCARDED] = "grey",
-        };
-
-        if (data) {
-            if (data->status == TASK_STATUS_DISCARDED && kSimplifyDotFile) {
-                // Simplify the graph by ignoring discarded branches.
-                return false;
-            }
-            fprintf(out, "\"%p\" [label=\"%lu bytes\" style=filled fillcolor=%s];\n",
-                         node,
-                         data->size,
-                         taskcolor[data->status]);
-        }
-
-        if (node->children) {
-            if (node->children->data) {
-                fprintf(out, " \"%p\" -> \"%p\" [label=\"Failure\"];\n", node, node->children);
-            }
-            if (node->children->next && node->children->next->data) {
-                fprintf(out, " \"%p\" -> \"%p\" [label=\"Success\"];\n", node, node->children->next);
-            }
-        }
-
-        return false;
-    }
-
     if (root) {
         // OK, well, this is about the limit of how useful the graph is.
         if (g_node_n_nodes(root, G_TRAVERSE_ALL) > 100)
             kSimplifyDotFile = true;
 
-        g_node_traverse(root, G_PRE_ORDER, G_TRAVERSE_ALL, -1, draw_tree_helper, NULL);
+        g_node_traverse(root, G_PRE_ORDER, G_TRAVERSE_ALL, -1, draw_tree_helper, out);
     }
 
     fprintf(out, "}\n");
@@ -189,6 +192,16 @@ static const gchar kMonitorHtml[] = {
     0,
 };
 
+static void __attribute__((destructor)) cleanup(void)
+{
+    if (kMonitorTmpImageFilename)
+        g_unlink(kMonitorTmpImageFilename);
+    if (kMonitorTmpHtmlFilename)
+        g_unlink(kMonitorTmpHtmlFilename);
+    g_free(kMonitorTmpImageFilename);
+    g_free(kMonitorTmpHtmlFilename);
+}
+
 // Debugging utility, generate some html so you can monitor the progress in a browser.
 gboolean generate_monitor_image(GNode *root)
 {
@@ -196,16 +209,6 @@ gboolean generate_monitor_image(GNode *root)
     gchar *tmpdotfile;
     gchar *tmpimgfile;
     gchar *html;
-
-    void __attribute__((destructor)) cleanup(void)
-    {
-        if (kMonitorTmpImageFilename)
-            g_unlink(kMonitorTmpImageFilename);
-        if (kMonitorTmpHtmlFilename)
-            g_unlink(kMonitorTmpHtmlFilename);
-        g_free(kMonitorTmpImageFilename);
-        g_free(kMonitorTmpHtmlFilename);
-    }
 
     if (!kMonitorTmpHtmlFilename) {
         g_close(g_file_open_tmp("halfout-XXXXXX.png", &kMonitorTmpImageFilename, NULL), NULL);

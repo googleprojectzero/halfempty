@@ -29,7 +29,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#ifdef __linux__
 #include <sys/personality.h>
+#endif
 
 #include "proc.h"
 #include "flags.h"
@@ -60,8 +62,10 @@ static void configure_child_limits(gpointer userdata)
     // Make sure we create a new pgrp so that we can kill all subprocesses.
     setpgid(0, 0);
 
+#ifdef __linux__
     // Try to be as consistent as possible.
     personality(personality(~0) | ADDR_NO_RANDOMIZE);
+#endif
 
     // Useful to help debug synchronization problems.
     if (kSleepSeconds)

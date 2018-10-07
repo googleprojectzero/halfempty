@@ -130,10 +130,10 @@ static void __attribute__((constructor)) init_child_limits()
             g_warning("failed to getrlimit for %u, %m", i);
         }
 
-        g_debug("Configured rlimit %s => { %ld, %ld }",
+        g_debug("Configured rlimit %s => { %llu, %llu }",
                 limit_to_str(i),
-                kChildLimits[i].rlim_cur,
-                kChildLimits[i].rlim_max);
+                (unsigned long long)kChildLimits[i].rlim_cur,
+                (unsigned long long)kChildLimits[i].rlim_max);
     }
 
 

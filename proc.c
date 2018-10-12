@@ -25,6 +25,7 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -63,6 +64,11 @@ static void configure_child_limits(gpointer userdata)
     // Useful to help debug synchronization problems.
     if (kSleepSeconds)
         g_usleep(kSleepSeconds * G_USEC_PER_SEC);
+
+    // glibc writes error messages to /dev/tty, which spams the console. This
+    // disables that error message, but don't overwrite any setting that the
+    // user has set.
+    setenv("MALLOC_CHECK_", "2", false);
 
     return;
 }

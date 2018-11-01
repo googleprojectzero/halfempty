@@ -1,0 +1,3 @@
+2018-10-17 0.11
+* Disable the default mcheck() errors in children to avoid spamming the console.
+

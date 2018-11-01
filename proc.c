@@ -56,7 +56,7 @@ static void configure_child_limits(gpointer userdata)
     prctl(PR_SET_PDEATHSIG, kKillFailedWorkersSignal);
 
     // Make sure we create a new pgrp so that we can kill all subprocesses.
-    setpgid(0, 0);
+    setpgrp();
 
     // Try to be as consistent as possible.
     personality(personality(~0) | ADDR_NO_RANDOMIZE);

@@ -278,7 +278,7 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
             result = info.si_status;
             break;
         case CLD_DUMPED:
-            g_debug("child %d dumped code, this might not be intentional, adjust limits?", *childpid);
+            g_debug("child %d dumped core, this might not be intentional, adjust limits?", *childpid);
             // fallthrough
         case CLD_KILLED:
             g_debug("child %d was killed by signal %s", *childpid, strsignal(info.si_status));

@@ -3,7 +3,7 @@
 all: clean grep.out true.out chars.out timeout.out verify.out complex.out random.out
 	test "$$(cat grep.out)" = "bisect"
 	test "$$(cat true.out)" = ""
-	test "$$(tr -d '\n' < chars.out)" = "tttttttttttttttttttttttttttttttt"
+	test "$$(tr -dc 't' < chars.out)" = "tttttttttttttttttttttttttttttttt"
 	test "$$(cat timeout.out)" = ""
 	test "$$(cat verify.out)" = "halfempty"
 	test "$$(wc -c < complex.out)" -le 128

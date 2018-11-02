@@ -19,6 +19,13 @@
 
 // This file is part of halfempty - a fast, parallel testcase minimization tool.
 
+#include <sys/resource.h>
+
+// Some OSes (e.g. macOS) define the number of RLIMITs under a different name.
+#if !defined(RLIMIT_NLIMITS) && defined(RLIM_NLIMITS)
+  #define RLIMIT_NLIMITS RLIM_NLIMITS
+#endif
+
 // See flags.c for documentation.
 extern guint kMaxUnprocessed;
 extern guint kCleanupThreads;

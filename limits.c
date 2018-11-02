@@ -41,22 +41,24 @@
 static const gchar * limit_to_str(uint8_t limit)
 {
     static const gchar * limits[UINT8_MAX] = {
-        [RLIMIT_CPU]        "RLIMIT_CPU",
-        [RLIMIT_FSIZE]      "RLIMIT_FSIZE",
-        [RLIMIT_DATA]       "RLIMIT_DATA",
-        [RLIMIT_STACK]      "RLIMIT_STACK",
-        [RLIMIT_CORE]       "RLIMIT_CORE",
-        [RLIMIT_RSS]        "RLIMIT_RSS",
-        [RLIMIT_NOFILE]     "RLIMIT_NOFILE",
-        [RLIMIT_AS]         "RLIMIT_AS",
-        [RLIMIT_NPROC]      "RLIMIT_NPROC",
-        [RLIMIT_MEMLOCK]    "RLIMIT_MEMLOCK",
-        [RLIMIT_LOCKS]      "RLIMIT_LOCKS",
-        [RLIMIT_SIGPENDING] "RLIMIT_SIGPENDING",
-        [RLIMIT_MSGQUEUE]   "RLIMIT_MSGQUEUE",
-        [RLIMIT_NICE]       "RLIMIT_NICE",
-        [RLIMIT_RTPRIO]     "RLIMIT_RTPRIO",
-        [RLIMIT_RTTIME]     "RLIMIT_RTTIME",
+        [RLIMIT_CPU]        = "RLIMIT_CPU",
+        [RLIMIT_FSIZE]      = "RLIMIT_FSIZE",
+        [RLIMIT_DATA]       = "RLIMIT_DATA",
+        [RLIMIT_STACK]      = "RLIMIT_STACK",
+        [RLIMIT_CORE]       = "RLIMIT_CORE",
+        [RLIMIT_RSS]        = "RLIMIT_RSS",
+        [RLIMIT_NOFILE]     = "RLIMIT_NOFILE",
+        [RLIMIT_NPROC]      = "RLIMIT_NPROC",
+        [RLIMIT_MEMLOCK]    = "RLIMIT_MEMLOCK",
+#ifdef __linux__
+        [RLIMIT_AS]         = "RLIMIT_AS",
+        [RLIMIT_LOCKS]      = "RLIMIT_LOCKS",
+        [RLIMIT_SIGPENDING] = "RLIMIT_SIGPENDING",
+        [RLIMIT_MSGQUEUE]   = "RLIMIT_MSGQUEUE",
+        [RLIMIT_NICE]       = "RLIMIT_NICE",
+        [RLIMIT_RTPRIO]     = "RLIMIT_RTPRIO",
+        [RLIMIT_RTTIME]     = "RLIMIT_RTTIME",
+#endif
     };
 
     return limits[limit];
@@ -128,10 +130,10 @@ static void __attribute__((constructor)) init_child_limits()
             g_warning("failed to getrlimit for %u, %m", i);
         }
 
-        g_debug("Configured rlimit %s => { %ld, %ld }",
+        g_debug("Configured rlimit %s => { %llu, %llu }",
                 limit_to_str(i),
-                kChildLimits[i].rlim_cur,
-                kChildLimits[i].rlim_max);
+                (unsigned long long)kChildLimits[i].rlim_cur,
+                (unsigned long long)kChildLimits[i].rlim_max);
     }
 
 

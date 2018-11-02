@@ -22,7 +22,6 @@
 #include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-#include <sys/sendfile.h>
 #include <sys/wait.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -72,7 +71,7 @@ static task_t * strategy_zero_data(GNode *node)
     task_t *source = parent;            // Where we get our data from.
     guint   adjust = 0;                 // How many times we tried to fit a chunk.
 
-    // We dont hold the lock on parent, but user data will never change.
+    // We don't hold the lock on parent, but user data will never change.
     bisect_t *parentstatus  = parent->user;
     bisect_t *childstatus   = g_new0(bisect_t, 1);
 
@@ -126,7 +125,7 @@ static task_t * strategy_zero_data(GNode *node)
 
     // Here is the problem, it's pointless trying to zero out chunks we've
     // already zeroed out. This means we need to start at the root, and see if
-    // our offset + chunksize is already inside a SUCCESS node (dont care about
+    // our offset + chunksize is already inside a SUCCESS node (don't care about
     // FAIL, because we're smaller).
     for (GNode *current = node; !G_NODE_IS_ROOT(current); current = current->parent) {
         gboolean adjusted = false;
@@ -225,7 +224,7 @@ static task_t * strategy_zero_data(GNode *node)
     // If it's success, the fd must be open and valid.
     g_assert_cmpint(source->fd, !=, -1);
 
-    // This cannot possible be wrong.
+    // This cannot possibly be wrong.
     g_assert_cmpuint(source->size, ==, g_file_size(source->fd));
 
     // OK, we can do a bisection now.
@@ -234,7 +233,7 @@ static task_t * strategy_zero_data(GNode *node)
     // Size should never change for this strategy.
     child->size = source->size;
 
-    // i didnt think this was possible because how can child be smaller than an ancestor?
+    // i didn't think this was possible because how can child be smaller than an ancestor?
     if (childstatus->offset > source->size)
         goto nochildunlock;
 

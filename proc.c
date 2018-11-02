@@ -21,18 +21,22 @@
 #include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-#include <sys/sendfile.h>
 #include <sys/wait.h>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#ifdef __linux__
 #include <sys/personality.h>
+#endif
 
 #include "proc.h"
 #include "flags.h"
+#include "util.h"
 
 // This file is part of halfempty - a fast, parallel testcase minimization tool.
 //
@@ -51,15 +55,17 @@ static void configure_child_limits(gpointer userdata)
             g_critical("a call to setrlimit for %u failed(), %m", i);
         }
     }
-
-    // Try to cleanup if we get killed.
-    prctl(PR_SET_PDEATHSIG, kKillFailedWorkersSignal);
-
+  
     // Make sure we create a new pgrp so that we can kill all subprocesses.
     setpgrp();
 
+#ifdef __linux__
+    // Try to cleanup if we get killed.
+    prctl(PR_SET_PDEATHSIG, kKillFailedWorkersSignal);
+
     // Try to be as consistent as possible.
     personality(personality(~0) | ADDR_NO_RANDOMIZE);
+#endif
 
     // Useful to help debug synchronization problems.
     if (kSleepSeconds)
@@ -83,7 +89,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
     g_debug("starting splice(%d, %lu, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
 
     while (size > 0) {
-        result = splice(datafd, &dataoffset, pipefd, NULL, size, 0);
+        result = g_splice(datafd, dataoffset, pipefd, size);
 
         // g_debug("splice(%d, %u, %d, NULL, %u, 0) => %d", datafd, dataoffset, pipefd, size, result);
 
@@ -99,7 +105,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
         g_close(pipefd, NULL);
     }
 
-    // Probably broken pipe? I think this is okay, but should check thats the real reason
+    // Probably broken pipe? I think this is okay, but should check that's the real reason
     if (size != 0) {
         g_debug("failed to splice all the data requested into pipe %ld remaining, %m", size);
     }
@@ -112,13 +118,13 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
 // It's pretty normal for programs to take too long to process their input, so
 // we need an option to support timeouts. I think --limit RLIMIT_CPU=10 works
 // quite intuitively, but cannot be caught by users if they want to clean
-// up and doesnt do anything if the process gets stuck blocking on something.
+// up and doesn't do anything if the process gets stuck blocking on something.
 //
 // We effectively want to run alarm() in the child, users can catch it (with
-// trap) and cleanup, or just let it terminate everything if they dont care.
-// But... alarm() wont work.  That only delivers a signal to the pgrp leader,
+// trap) and cleanup, or just let it terminate everything if they don't care.
+// But... alarm() won't work.  That only delivers a signal to the pgrp leader,
 // which is not what anyone expects (they would expect all subprocesses to be
-// cleaned up). I cant just write some code to catch that signal and forward
+// cleaned up). I can't just write some code to catch that signal and forward
 // it to the pgrp, because obviously that would be reset on execve. :-(
 //
 // I think there are only two options:
@@ -132,7 +138,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
 //
 //      Now the signal would work as expected, but not everyone is familiar
 //      with this syntax, and it seems like a lot to ask for such a basic thing
-//      as timeouts. I dont think many people understand pgrps, so it might be
+//      as timeouts. I don't think many people understand pgrps, so it might be
 //      kinda confusing.
 //
 //      2. I have a "timeout thread" that runs alarm() with a signal handler

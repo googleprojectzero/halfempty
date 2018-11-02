@@ -21,7 +21,6 @@
 #include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-#include <sys/sendfile.h>
 #include <sys/wait.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -127,7 +126,7 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         // Take the treelock so we can modify the tree.
         g_mutex_lock(&treelock);
 
-        // Dont generate too much work or we'll explore too far down a wrong path.
+        // Don't generate too much work or we'll explore too far down a wrong path.
         // This condition is always signaled when a workunit completes.
         while (g_thread_pool_unprocessed(threadpool) > kMaxUnprocessed)
             g_cond_wait(&treecond, &treelock);
@@ -291,9 +290,9 @@ void cleanup_orphaned_tasks(task_t *task)
 
     g_mutex_lock(&task->mutex);
 
-    g_debug("thread %p aquired lock on task %p, state %s", g_thread_self(), task, string_from_status(task->status));
+    g_debug("thread %p acquired lock on task %p, state %s", g_thread_self(), task, string_from_status(task->status));
 
-    // It doesn't matter what state it is right now, we dont care.
+    // It doesn't matter what state it is right now, we don't care.
     task->status = TASK_STATUS_DISCARDED;
 
     // We hold the lock on this task now, so can clean up the file descriptor and zombie.
@@ -301,7 +300,7 @@ void cleanup_orphaned_tasks(task_t *task)
 
     if (task->childpid > 0) {
         if (waitpid(task->childpid, NULL, WNOHANG) != task->childpid) {
-            g_critical("waitpid() didnt return immediately with zombie, this shouldnt happen");
+            g_critical("waitpid() didn't return immediately with zombie, this shouldn't happen");
         }
     }
 
@@ -314,21 +313,21 @@ void cleanup_orphaned_tasks(task_t *task)
     g_debug("task %p unlocked by %p, now discarded", task, g_thread_self());
 }
 
+static gboolean abort_task_helper(GNode *node, gpointer data)
+{
+    // We can't lock tasks here or we would deadlock, so push them on a
+    // queue to cleanup later.
+    if (node->data) {
+        g_thread_pool_push(cleanup, node->data, NULL);
+    }
+    return false;
+}
+
 void abort_pending_tasks(GNode *root)
 {
     if (root == NULL) {
         g_debug("abort_pending_tasks() called, but no child nodes to traverse");
         return;
-    }
-
-    gboolean abort_task_helper(GNode *node, gpointer data)
-    {
-        // We cant lock tasks here or we would deadlock, so push them on a
-        // queue to cleanup later.
-        if (node->data) {
-            g_thread_pool_push(cleanup, node->data, NULL);
-        }
-        return false;
     }
 
     // Prevent any new jobs from being inserted.
@@ -410,7 +409,7 @@ void process_execute_jobs(GNode *node)
                  // Update status.
                  task->status = TASK_STATUS_SUCCESS;
 
-                 // We dont need to hold the lock anymore.
+                 // We don't need to hold the lock anymore.
                  g_mutex_unlock(&task->mutex);
 
                  // Any tasks on the failure branch were mispredicted.
@@ -452,7 +451,7 @@ static gdouble path_total_elapsed(GNode *node)
 {
     gdouble elapsed = 0;
 
-    // Dont call me on random nodes, must be finalized.
+    // Don't call me on random nodes, must be finalized.
     g_assert(root_path_finalized(node));
 
     for (; !G_NODE_IS_ROOT(node); node = node->parent) {
@@ -467,12 +466,50 @@ static gdouble path_total_elapsed(GNode *node)
     return elapsed;
 }
 
+struct tree_stats {
+    gint failure;
+    gint success;
+    gint discarded;
+    gdouble elapsed;
+};
+
+static gboolean analyze_tree_helper(GNode *node, gpointer user)
+{
+    struct tree_stats *stats = user;
+    task_t *task = node->data;
+
+    if (task == NULL) {
+        return false;
+    }
+
+    g_assert_cmpint(task->status, !=, TASK_STATUS_PENDING);
+
+    // Keep track of total compute time.
+    if (task->status != TASK_STATUS_DISCARDED) {
+        stats->elapsed += g_timer_elapsed(task->timer, NULL);
+    }
+
+    if (task->status == TASK_STATUS_SUCCESS) {
+        stats->success++;
+    } else if (task->status == TASK_STATUS_FAILURE) {
+        stats->failure++;
+    } else if (task->status == TASK_STATUS_DISCARDED) {
+        stats->discarded++;
+    } else {
+        g_assert_not_reached();
+    }
+
+    return false;
+}
+
 static void show_tree_statistics(void)
 {
-    gint failure = 0;
-    gint success = 0;
-    gint discarded = 0;
-    gdouble elapsed = 0;
+    struct tree_stats stats = {
+        .failure = 0,
+        .success = 0,
+        .discarded = 0,
+        .elapsed = 0,
+    };
 
     g_mutex_lock(&treelock);
 
@@ -481,7 +518,7 @@ static void show_tree_statistics(void)
     if (kGenerateDotFile) {
         gchar dotfile[] = "finaltree.XXXXXX.dot";
 
-        // I dont want the descriptor, just the filename.
+        // I don't want the descriptor, just the filename.
         g_close(g_mkstemp(dotfile), NULL);
 
         g_print("Generating DOT file of final tree to %s (view it with xdot)...", dotfile);
@@ -489,40 +526,12 @@ static void show_tree_statistics(void)
         generate_dot_tree(tree, dotfile);
     }
 
-    gboolean analyze_tree_helper(GNode *node, gpointer user)
-    {
-        task_t *task = node->data;
-
-        if (task == NULL) {
-            return false;
-        }
-
-        g_assert_cmpint(task->status, !=, TASK_STATUS_PENDING);
-
-        // Keep track of total compute time.
-        if (task->status != TASK_STATUS_DISCARDED) {
-            elapsed += g_timer_elapsed(task->timer, NULL);
-        }
-
-        if (task->status == TASK_STATUS_SUCCESS) {
-            success++;
-        } else if (task->status == TASK_STATUS_FAILURE) {
-            failure++;
-        } else if (task->status == TASK_STATUS_DISCARDED) {
-            discarded++;
-        } else {
-            g_assert_not_reached();
-        }
-
-        return false;
-    }
-
     // Visit every node
-    g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, NULL);
+    g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
 
     g_mutex_unlock(&treelock);
-    g_print("%u nodes failed, %u worked, %u discarded", failure, success, discarded);
-    g_print("%0.3f seconds of compute was required for final path", elapsed);
+    g_print("%u nodes failed, %u worked, %u discarded", stats.failure, stats.success, stats.discarded);
+    g_print("%0.3f seconds of compute was required for final path", stats.elapsed);
 }
 
 // Find the deepest finalized node, optionally with TASK_STATUS_SUCCESS
@@ -599,26 +608,26 @@ static void duplicate_final_node(gint *fd)
     return;
 }
 
+static gboolean cleanup_tree_helper(GNode *node, gpointer user)
+{
+    task_t *task = node->data;
+
+    if (task == NULL)
+        return false;
+
+    g_debug("cleanup task %p, fd: %d", task, task->fd);
+
+    cleanup_orphaned_tasks(task);
+    g_free(task->user);
+    g_free(task);
+    return false;
+}
+
 static void cleanup_tree(void)
 {
     g_mutex_lock(&treelock);
 
-    g_debug("cleanup_tree() aquired lock, about to free all resources");
-
-    gboolean cleanup_tree_helper(GNode *node, gpointer user)
-    {
-        task_t *task = node->data;
-
-        if (task == NULL)
-            return false;
-
-        g_debug("cleanup task %p, fd: %d", task, task->fd);
-
-        cleanup_orphaned_tasks(task);
-        g_free(task->user);
-        g_free(task);
-        return false;
-    }
+    g_debug("cleanup_tree() acquired lock, about to free all resources");
 
     // Visit every node
     g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, cleanup_tree_helper, NULL);

@@ -15,7 +15,9 @@
  */
 
 #include <sys/resource.h>
+#ifdef __linux__
 #include <sys/sendfile.h>
+#endif
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -68,21 +70,57 @@ void g_clearline(void)
     }
 }
 
+static gboolean tree_depth_helper(GNode *node, gpointer data)
+{
+    guint *maxdepth = (guint*)data;
+
+    if (g_node_depth(node) > *maxdepth)
+        *maxdepth = g_node_depth(node);
+    return false;
+}
+
 // Find the depth of the deepest node in the tree.
 guint find_maximum_depth(GNode *root)
 {
     guint maxdepth = 0;
 
-    gboolean tree_depth_helper(GNode *node, gpointer data)
-    {
-        if (g_node_depth(node) > maxdepth)
-            maxdepth = g_node_depth(node);
-        return false;
-    }
-
-    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, tree_depth_helper, NULL);
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, tree_depth_helper, &maxdepth);
 
     return maxdepth;
+}
+
+static gboolean draw_tree_helper(GNode *node, gpointer user)
+{
+    FILE *out = (FILE*)user;
+    task_t *data = node->data;
+    static const gchar *taskcolor[] = {
+        [TASK_STATUS_FAILURE] = "red",
+        [TASK_STATUS_SUCCESS] = "green",
+        [TASK_STATUS_PENDING] = "orange",
+        [TASK_STATUS_DISCARDED] = "grey",
+    };
+
+    if (data) {
+        if (data->status == TASK_STATUS_DISCARDED && kSimplifyDotFile) {
+            // Simplify the graph by ignoring discarded branches.
+            return false;
+        }
+        fprintf(out, "\"%p\" [label=\"%lu bytes\" style=filled fillcolor=%s];\n",
+                     node,
+                     data->size,
+                     taskcolor[data->status]);
+    }
+
+    if (node->children) {
+        if (node->children->data) {
+            fprintf(out, " \"%p\" -> \"%p\" [label=\"Failure\"];\n", node, node->children);
+        }
+        if (node->children->next && node->children->next->data) {
+            fprintf(out, " \"%p\" -> \"%p\" [label=\"Success\"];\n", node, node->children->next);
+        }
+    }
+
+    return false;
 }
 
 // Generate a DOT file from the specified binary tree.
@@ -97,45 +135,12 @@ gboolean generate_dot_tree(GNode *root, gchar *filename)
 
     fprintf(out, "digraph tree { node [fontname=Arial];\n");
 
-    gboolean draw_tree_helper(GNode *node, gpointer user)
-    {
-        task_t *data = node->data;
-        static const gchar *taskcolor[] = {
-            [TASK_STATUS_FAILURE] = "red",
-            [TASK_STATUS_SUCCESS] = "green",
-            [TASK_STATUS_PENDING] = "orange",
-            [TASK_STATUS_DISCARDED] = "grey",
-        };
-
-        if (data) {
-            if (data->status == TASK_STATUS_DISCARDED && kSimplifyDotFile) {
-                // Simplify the graph by ignoring discarded branches.
-                return false;
-            }
-            fprintf(out, "\"%p\" [label=\"%lu bytes\" style=filled fillcolor=%s];\n",
-                         node,
-                         data->size,
-                         taskcolor[data->status]);
-        }
-
-        if (node->children) {
-            if (node->children->data) {
-                fprintf(out, " \"%p\" -> \"%p\" [label=\"Failure\"];\n", node, node->children);
-            }
-            if (node->children->next && node->children->next->data) {
-                fprintf(out, " \"%p\" -> \"%p\" [label=\"Success\"];\n", node, node->children->next);
-            }
-        }
-
-        return false;
-    }
-
     if (root) {
         // OK, well, this is about the limit of how useful the graph is.
         if (g_node_n_nodes(root, G_TRAVERSE_ALL) > 100)
             kSimplifyDotFile = true;
 
-        g_node_traverse(root, G_PRE_ORDER, G_TRAVERSE_ALL, -1, draw_tree_helper, NULL);
+        g_node_traverse(root, G_PRE_ORDER, G_TRAVERSE_ALL, -1, draw_tree_helper, out);
     }
 
     fprintf(out, "}\n");
@@ -162,13 +167,59 @@ gint g_unlinked_tmp(GError **error)
 // A more convenient wrapper for sendfile.
 gssize g_sendfile(gint outfd, gint infd, goffset offset, gsize count)
 {
+#ifdef __linux__
     return sendfile(outfd, infd, &offset, count);
+#else
+    char buf[BUFSIZ];
+    size_t total = 0;
+
+    if (lseek(infd, offset, SEEK_SET) < 0)
+        return -1;
+
+    while (total < count) {
+        ssize_t r = 0;
+        ssize_t w = 0;
+        size_t written = 0;
+
+        size_t next = sizeof(buf);
+        if (next > count - total)
+            next = count - total;
+
+        r = read(infd, buf, next);
+        if (r < 0)
+            return r;
+
+        while (written < (size_t)r) {
+            w = write(outfd, buf, (size_t)r);
+            if (w < 0)
+                return w;
+
+            written += (size_t)w;
+            g_assert_cmpint(w, <=, r);
+            r -= w;
+        }
+
+        total += written;
+    }
+
+    return total;
+#endif
 }
 
 // A more convenient wrapper for sendfile.
 gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
 {
-    return sendfile(outfd, infd, &offset, count) == count;
+    return g_sendfile(outfd, infd, offset, count) == count;
+}
+
+// A more convenient wrapper for splice.
+gssize g_splice(gint infd, goffset offset, gint outfd, gsize count)
+{
+#ifdef __linux__
+    return splice(infd, &offset, outfd, NULL, count, 0);
+#else
+    return g_sendfile(outfd, infd, offset, count);
+#endif
 }
 
 // Empty log handler to silence messages.
@@ -183,6 +234,16 @@ static const gchar kMonitorHtml[] = {
     0,
 };
 
+static void __attribute__((destructor)) cleanup(void)
+{
+    if (kMonitorTmpImageFilename)
+        g_unlink(kMonitorTmpImageFilename);
+    if (kMonitorTmpHtmlFilename)
+        g_unlink(kMonitorTmpHtmlFilename);
+    g_free(kMonitorTmpImageFilename);
+    g_free(kMonitorTmpHtmlFilename);
+}
+
 // Debugging utility, generate some html so you can monitor the progress in a browser.
 gboolean generate_monitor_image(GNode *root)
 {
@@ -190,16 +251,6 @@ gboolean generate_monitor_image(GNode *root)
     gchar *tmpdotfile;
     gchar *tmpimgfile;
     gchar *html;
-
-    void __attribute__((destructor)) cleanup(void)
-    {
-        if (kMonitorTmpImageFilename)
-            g_unlink(kMonitorTmpImageFilename);
-        if (kMonitorTmpHtmlFilename)
-            g_unlink(kMonitorTmpHtmlFilename);
-        g_free(kMonitorTmpImageFilename);
-        g_free(kMonitorTmpHtmlFilename);
-    }
 
     if (!kMonitorTmpHtmlFilename) {
         g_close(g_file_open_tmp("halfout-XXXXXX.png", &kMonitorTmpImageFilename, NULL), NULL);

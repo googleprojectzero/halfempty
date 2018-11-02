@@ -84,6 +84,14 @@ Halfempty has preliminary macOS support using [homebrew](https://brew.sh/).
 Please use `brew install pkg-config glib` to install necessary dependencies, then `make` to build
 the main binary.
 
+Halfempty can use lots of processes and file descriptors, if you get errors about resource limits
+try increasing the limits like this:
+
+```
+$ ulimit -n $(sysctl -n kern.maxfilesperproc) 
+$ sudo sysctl kern.maxproc=2048
+```
+
 ### Usage
 
 First, create a shell script that when given your input on stdin, returns zero.

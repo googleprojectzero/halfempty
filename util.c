@@ -167,59 +167,13 @@ gint g_unlinked_tmp(GError **error)
 // A more convenient wrapper for sendfile.
 gssize g_sendfile(gint outfd, gint infd, goffset offset, gsize count)
 {
-#ifdef __linux__
     return sendfile(outfd, infd, &offset, count);
-#else
-    char buf[BUFSIZ];
-    size_t total = 0;
-
-    if (lseek(infd, offset, SEEK_SET) < 0)
-        return -1;
-
-    while (total < count) {
-        ssize_t r = 0;
-        ssize_t w = 0;
-        size_t written = 0;
-
-        size_t next = sizeof(buf);
-        if (next > count - total)
-            next = count - total;
-
-        r = read(infd, buf, next);
-        if (r < 0)
-            return r;
-
-        while (written < (size_t)r) {
-            w = write(outfd, buf, (size_t)r);
-            if (w < 0)
-                return w;
-
-            written += (size_t)w;
-            g_assert_cmpint(w, <=, r);
-            r -= w;
-        }
-
-        total += written;
-    }
-
-    return total;
-#endif
 }
 
 // A more convenient wrapper for sendfile.
 gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
 {
     return g_sendfile(outfd, infd, offset, count) == count;
-}
-
-// A more convenient wrapper for splice.
-gssize g_splice(gint infd, goffset offset, gint outfd, gsize count)
-{
-#ifdef __linux__
-    return splice(infd, &offset, outfd, NULL, count, 0);
-#else
-    return g_sendfile(outfd, infd, offset, count);
-#endif
 }
 
 // Empty log handler to silence messages.

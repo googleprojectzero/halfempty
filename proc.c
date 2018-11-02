@@ -23,16 +23,14 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #ifdef __linux__
-#include <sys/prctl.h>
+# include <sys/prctl.h>
+# include <sys/personality.h>
 #endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#ifdef __linux__
-#include <sys/personality.h>
-#endif
 
 #include "proc.h"
 #include "flags.h"
@@ -55,7 +53,7 @@ static void configure_child_limits(gpointer userdata)
             g_critical("a call to setrlimit for %u failed(), %m", i);
         }
     }
-  
+
     // Make sure we create a new pgrp so that we can kill all subprocesses.
     setpgrp();
 
@@ -89,7 +87,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
     g_debug("starting splice(%d, %lu, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
 
     while (size > 0) {
-        result = g_splice(datafd, dataoffset, pipefd, size);
+        result = splice(datafd, &dataoffset, pipefd, NULL, size, 0);
 
         // g_debug("splice(%d, %u, %d, NULL, %u, 0) => %d", datafd, dataoffset, pipefd, size, result);
 
@@ -265,7 +263,7 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 
     write_pipe(pipein, inputfd, inputlen, 0, true);
 
-    g_debug("finished writing data to child, about to waitpid(%d)", *childpid);
+    g_debug("finished writing data to child, about to waitid(%d)", *childpid);
 
     if (waitid(P_PID, *childpid, &info, WEXITED | WNOWAIT) != 0) {
         g_warning("waitid for child %d failed, %m", *childpid);
@@ -281,6 +279,9 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 
     switch (info.si_code) {
         case CLD_EXITED:
+            g_debug("child %d exited with code %d", info.si_pid, info.si_status);
+
+            // The exit code becomes our result.
             result = info.si_status;
             break;
         case CLD_DUMPED:

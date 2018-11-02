@@ -22,6 +22,9 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef __APPLE__
+# include <sys/sysctl.h>
+#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -175,6 +178,26 @@ int main(int argc, char **argv)
     // We send the input data to the test program via pipes, so if the child
     // crashes or exits before we send it all the data we have, we get SIGPIPE.
     sigaction(SIGPIPE, &sa, NULL);
+
+#ifdef __APPLE__
+    // The default for RLIMIT_NOFILE on macOS is insanely small (256), lets
+    // turn it up to something reasonable.
+    {
+        struct rlimit limfiles = {
+            .rlim_cur = 32768,
+            .rlim_max = RLIM_INFINITY,
+        };
+        size_t length = sizeof(rlim_t);
+
+        if (sysctlbyname("kern.maxfilesperproc", &limfiles.rlim_cur, &length, NULL, 0) == 0) {
+            if (setrlimit(RLIMIT_NOFILE, &limfiles) != 0) {
+                g_warning("failed to adjust resource limits, use \"ulimit -n\" instead");
+            }
+        } else {
+            g_warning("failed to query kern.maxfilesperproc, use \"ulimit -n\" instead");
+        }
+    }
+#endif
 
     if (argc != 3) {
         g_warning("You must specify two parameters, a test program and an inputfile");

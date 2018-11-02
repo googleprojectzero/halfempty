@@ -269,13 +269,22 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 
     g_debug("finished writing data to child, about to waitid(%d)", *childpid);
 
+  childwait:
+    // The data has been written to the child process, now we wait for it to
+    // complete. We use NOWAIT so that the garbage collecting thread can reap
+    // the children.
     if (waitid(P_PID, *childpid, &info, WEXITED | WNOWAIT) != 0) {
-        g_warning("waitid for child %d failed, %m", *childpid);
+        // On macOS, waitid can fail with EINTR, I don't think this can happen
+        // on Linux but it doesn't hurt to handle it.
+        if (errno != EINTR) {
+            g_error("waitid for child %d failed, %s", *childpid, strerror(errno));
+        }
+
+        // Continue waiting...
+        goto childwait;
     }
 
-#ifdef __linux__
     g_assert_cmpint(info.si_pid, ==, *childpid);
-#endif
 
     // Terminate the watchdog thread, no longer necessary.
     if (kMaxProcessTime) {

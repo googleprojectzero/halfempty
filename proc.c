@@ -179,8 +179,10 @@ static gpointer timeout_watchdog_thread(gpointer param)
             break;
         }
 
+#if __linux__
         // The only other possibility is WNOHANG.
         g_assert_cmpint(info.si_pid, ==, 0);
+#endif
 
         // Wait for timeout, or main thread to tell us the child is dead.
         if (g_cond_wait_until(&data->condition, &mutex, timeout) == FALSE) {
@@ -269,7 +271,9 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
         g_warning("waitid for child %d failed, %m", *childpid);
     }
 
+#ifdef __linux__
     g_assert_cmpint(info.si_pid, ==, *childpid);
+#endif
 
     // Terminate the watchdog thread, no longer necessary.
     if (kMaxProcessTime) {

@@ -15,7 +15,7 @@ check:
 	@echo ok
 
 ifeq ($(shell uname),Darwin)
-	EXTRA = sendfile_generic.o splice_generic.o
+EXTRA = sendfile_generic.o splice_generic.o
 endif
 
 halfempty: proc.o bisect.o util.o zero.o tree.o flags.o halfempty.o limits.o $(EXTRA)

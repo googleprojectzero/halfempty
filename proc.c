@@ -154,7 +154,7 @@ typedef struct {
 
 static gpointer timeout_watchdog_thread(gpointer param)
 {
-    siginfo_t info;
+    siginfo_t info = {0};
     GMutex mutex;
     gint64 timeout;
     watchdog_t *data = param;
@@ -179,10 +179,8 @@ static gpointer timeout_watchdog_thread(gpointer param)
             break;
         }
 
-#if __linux__
         // The only other possibility is WNOHANG.
         g_assert_cmpint(info.si_pid, ==, 0);
-#endif
 
         // Wait for timeout, or main thread to tell us the child is dead.
         if (g_cond_wait_until(&data->condition, &mutex, timeout) == FALSE) {
@@ -199,6 +197,10 @@ static gpointer timeout_watchdog_thread(gpointer param)
         } else {
             g_debug("condition signaled, exit watchdog for pid %d", data->child);
         }
+
+        // The waitid() manual recommends zeroing si_pid to differentiate
+        // WNOHANG from the case where no children exist.
+        info.si_pid = 0;
     }
 
     g_mutex_unlock(&mutex);
@@ -210,7 +212,7 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 {
     GError  *error = NULL;
     GThread *watchdog = NULL;
-    siginfo_t info;
+    siginfo_t info = {0};
     watchdog_t timeout;
     gint pipein;
     gint result;

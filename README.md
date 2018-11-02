@@ -77,6 +77,13 @@ The author has tested the following distributions:
 * CentOS 6 amd64
 * Ubuntu 14 amd64
 
+#### Mac OS X
+
+Halfempty has preliminary macOS support using [homebrew](https://brew.sh/).
+
+Please use `brew install pkg-config glib` to install necessary dependencies, then `make` to build
+the main binary.
+
 ### Usage
 
 First, create a shell script that when given your input on stdin, returns zero.

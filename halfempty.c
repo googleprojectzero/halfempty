@@ -44,7 +44,9 @@
 
 void signal_handler(int sig, siginfo_t *info, void *ucontext)
 {
+#if __linux__
     g_debug("%s received from %d", strsignal(sig), info->si_pid);
+#endif
 }
 
 static const GOptionEntry kThreadOptions[] = {

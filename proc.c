@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #endif
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -54,16 +55,14 @@ static void configure_child_limits(gpointer userdata)
             g_critical("a call to setrlimit for %u failed(), %m", i);
         }
     }
+  
+    // Make sure we create a new pgrp so that we can kill all subprocesses.
+    setpgrp();
 
 #ifdef __linux__
     // Try to cleanup if we get killed.
-    prctl(PR_SET_PDEATHSIG, SIGKILL);
-#endif
+    prctl(PR_SET_PDEATHSIG, kKillFailedWorkersSignal);
 
-    // Make sure we create a new pgrp so that we can kill all subprocesses.
-    setpgid(0, 0);
-
-#ifdef __linux__
     // Try to be as consistent as possible.
     personality(personality(~0) | ADDR_NO_RANDOMIZE);
 #endif
@@ -71,6 +70,11 @@ static void configure_child_limits(gpointer userdata)
     // Useful to help debug synchronization problems.
     if (kSleepSeconds)
         g_usleep(kSleepSeconds * G_USEC_PER_SEC);
+
+    // glibc writes error messages to /dev/tty, which spams the console. This
+    // disables that error message, but don't overwrite any setting that the
+    // user has set.
+    setenv("MALLOC_CHECK_", "2", false);
 
     return;
 }
@@ -280,7 +284,7 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
             result = info.si_status;
             break;
         case CLD_DUMPED:
-            g_debug("child %d dumped code, this might not be intentional, adjust limits?", *childpid);
+            g_debug("child %d dumped core, this might not be intentional, adjust limits?", *childpid);
             // fallthrough
         case CLD_KILLED:
             g_debug("child %d was killed by signal %s", *childpid, strsignal(info.si_status));

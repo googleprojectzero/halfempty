@@ -654,6 +654,9 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
 
     finalnode    = find_finalized_node(tree, true);
     finaltask    = finalnode->data;
+
+    // We count the elapsed time to the last finalized node regardless of
+    // success, this makes the user time calculation more accurate.
     finalelapsed = path_total_elapsed(find_finalized_node(tree, false));
 
     // Print status messages if this is a terminal.

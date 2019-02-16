@@ -179,25 +179,37 @@ int main(int argc, char **argv)
     // crashes or exits before we send it all the data we have, we get SIGPIPE.
     sigaction(SIGPIPE, &sa, NULL);
 
-#ifdef __APPLE__
-    // The default for RLIMIT_NOFILE on macOS is insanely small (256), lets
-    // turn it up to something reasonable.
     {
         struct rlimit limfiles = {
             .rlim_cur = 32768,
             .rlim_max = RLIM_INFINITY,
         };
+
+#ifdef __APPLE__
         size_t length = sizeof(rlim_t);
 
+        // The default for RLIMIT_NOFILE on macOS is insanely small (256), lets
+        // turn it up to something reasonable.
         if (sysctlbyname("kern.maxfilesperproc", &limfiles.rlim_cur, &length, NULL, 0) == 0) {
-            if (setrlimit(RLIMIT_NOFILE, &limfiles) != 0) {
-                g_warning("failed to adjust resource limits, use \"ulimit -n\" instead");
-            }
+            g_warning("failed to query kern.maxfilesperproc");
+        }
+#else
+        // Try to turn up the rlimit for RLIMIT_NOFILE, at least on some
+        // distributions the default soft limit is too small for halfempty (e.g.
+        // RHEL7).
+        if (getrlimit(RLIMIT_NOFILE, &limfiles) != 0) {
+            g_warning("failed to query limits, use \"ulimit -n\" instead");
         } else {
-            g_warning("failed to query kern.maxfilesperproc, use \"ulimit -n\" instead");
+            // Use the maximum we're allowed.
+            limfiles.rlim_cur = limfiles.rlim_max;
+        }
+#endif
+
+        if (setrlimit(RLIMIT_NOFILE, &limfiles) != 0) {
+            g_warning("failed to adjust resource limits, use \"ulimit -n\" if necessary");
         }
     }
-#endif
+
 
     if (argc != 3) {
         g_warning("You must specify two parameters, a test program and an inputfile");

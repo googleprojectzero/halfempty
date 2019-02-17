@@ -282,7 +282,8 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
 }
 
 // This routine cleans up tasks that are on discarded branches.
-// This is the only location that tasks are destroyed.
+// This is the only location that tasks are destroyed and should only be called
+// from the gc thread.
 void cleanup_orphaned_tasks(task_t *task)
 {
     GPid childpid = task->childpid;
@@ -300,8 +301,9 @@ void cleanup_orphaned_tasks(task_t *task)
 
     g_debug("thread %p acquired lock on task %p, state %s", g_thread_self(), task, string_from_status(task->status));
 
-    // It doesn't matter what state it is right now, we don't care.
-    task->status = TASK_STATUS_DISCARDED;
+    // Ensure pending tasks dont get executed. 
+    if (task->status == TASK_STATUS_PENDING)
+        task->status = TASK_STATUS_DISCARDED;
 
     // We hold the lock on this task now, so can clean up the file descriptor and zombie.
     g_close(task->fd, NULL);
@@ -441,27 +443,9 @@ void process_execute_jobs(GNode *node)
                  // Update status.
                  task->status = TASK_STATUS_FAILURE;
 
-                 // The input fd is still open here, but we now know for sure
-                 // we won't need it (because we only base tasks on the last
-                 // successful node).
-                 g_assert_cmpint(task->fd, !=, -1);
-
-                 // Therefore, we can now close it while we hold the task lock.
-                 g_close(task->fd, NULL);
-
-                 // The task is currently a zombie (because we waited with
-                 // NOWAIT), but even zombies have a pid.
-                 g_assert_cmpint(task->childpid, !=, 0);
-
                  // We now know for sure we dont need it, so we can release
                  // these resources.
-                 if (waitpid(task->childpid, NULL, WNOHANG) != task->childpid) {
-                    g_critical("waitpid() didn't return immediately with zombie, this shouldn't happen");
-                 }
-
-                 // Mark these resources as cleared.
-                 task->fd       = -1;
-                 task->childpid = 0;
+                 g_thread_pool_push(cleanup, task, NULL);
 
                  // All done.
                  g_mutex_unlock(&task->mutex);
@@ -636,6 +620,8 @@ static void duplicate_final_node(gint *fd)
     return;
 }
 
+// This should only be called when the tree is being destroyed, otherwise use
+// the gc thread.
 static gboolean cleanup_tree_helper(GNode *node, gpointer user)
 {
     task_t *task = node->data;
@@ -700,8 +686,14 @@ static gint collapse_finalized_failure_paths(void)
             collapsedtime += g_timer_elapsed(ptask->timer, NULL);
 
             // We can safely free this finalized node now.
-            cleanup_tree_helper(parent, NULL);
-            g_node_destroy(parent);
+            g_thread_pool_push(cleanup, ptask, NULL);
+
+            // We can't destroy this node here, because we'll leak the task,
+            // just put it somewhere out of the way where cleanup_tree() can
+            // find it (i.e. the failure path of the root, which cannot fail).
+            g_assert_nonnull(g_node_failure(tree));
+            g_assert_null(g_node_failure(tree)->data);
+            g_node_insert(g_node_failure(tree), -1, parent);
 
             collapsed++;
         } else {
@@ -710,6 +702,7 @@ static gint collapse_finalized_failure_paths(void)
     }
 
     g_debug("collapsed %u failed nodes to optimize tree, new tree size=%u", collapsed, g_node_max_height(tree));
+    g_debug("there are %u orphaned nodes awaiting gc", g_node_n_children(g_node_failure(tree)));
 
     // Adjust as tree grows.
     kMaxTreeDepth += g_node_max_height(tree);

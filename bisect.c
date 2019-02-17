@@ -184,7 +184,7 @@ static task_t * strategy_bisect_data(GNode *node)
 
     // Initialize the new child with everything up to offset.
     if (g_sendfile_all(child->fd, source->fd, 0, childstatus->offset) == false) {
-        g_warning("sendfile failed while trying to construct new file, %m");
+        g_error("sendfile failed while trying to construct new file, %m");
         goto nochildunlock;
     }
 
@@ -195,7 +195,7 @@ static task_t * strategy_bisect_data(GNode *node)
                            source->fd,
                            childstatus->offset + childstatus->chunksize,
                            source->size - childstatus->chunksize - childstatus->offset) == false) {
-            g_warning("sendfile failed while trying to construct new file, %m");
+            g_error("sendfile failed while trying to construct new file, %m");
             goto nochildunlock;
         }
 

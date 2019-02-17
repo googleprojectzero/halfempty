@@ -173,7 +173,26 @@ gssize g_sendfile(gint outfd, gint infd, goffset offset, gsize count)
 // A more convenient wrapper for sendfile.
 gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
 {
-    return g_sendfile(outfd, infd, offset, count) == count;
+    gsize result;
+    gsize total;
+
+    total = 0;
+
+    while (total < count) {
+        result = g_sendfile(outfd, infd, offset, count - total);
+
+        if (result < 0)
+	        break;
+
+        total += result;
+
+        g_assert_cmpint(total, <=, count);
+    }
+
+	if (total != count)
+		g_debug("failed to write requested amount of data, will return fail");
+
+    return total == count;
 }
 
 // Empty log handler to silence messages.

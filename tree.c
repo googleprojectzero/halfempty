@@ -673,6 +673,7 @@ static void cleanup_tree(void)
 
 // This routine will collapse long paths of consecutive failures to
 // compress very large trees. This should be rarely necessary.
+// Returns the new distance from the root to the finalized success node.
 // XXX: must hold tree lock.
 static gint collapse_finalized_failure_paths(void)
 {
@@ -710,11 +711,10 @@ static gint collapse_finalized_failure_paths(void)
 
     g_debug("collapsed %u failed nodes to optimize tree, new tree size=%u", collapsed, g_node_max_height(tree));
 
-    // Adjust as three grows.
-    if (g_node_max_height(tree) > (kMaxTreeDepth >> 1))
-        kMaxTreeDepth <<= 1;
+    // Adjust as tree grows.
+    kMaxTreeDepth += g_node_max_height(tree);
 
-    // TODO: if the tree starts getting too long, we could just set tree = final?
+    // Return the new depth so that status messages are consistent.
     return g_node_depth(find_finalized_node(tree, true));
 }
 

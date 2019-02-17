@@ -46,6 +46,7 @@ static gboolean root_path_finalized(GNode *node);
 static GNode * find_finalized_node(GNode *root, gboolean success);
 static gdouble path_total_elapsed(GNode *node);
 static gint print_status_message(GTimer *elapsed, gint finaldepth);
+static gint collapse_finalized_failure_paths(void);
 
 // This binary tree represents our path through the testcases we've generated
 // so far. The root node contains the original input (although we may have
@@ -66,6 +67,7 @@ static GMutex treelock;
 static GCond treecond;
 static GThreadPool *threadpool;
 static GThreadPool *cleanup;
+static gdouble collapsedtime;
 
 gint kNumStrategies;
 strategy_t kStrategyList[MAX_STRATEGIES];
@@ -129,7 +131,7 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         // Don't generate too much work or we'll explore too far down a wrong path.
         // This condition is always signaled when a workunit completes.
         while (g_thread_pool_unprocessed(threadpool) > kMaxUnprocessed)
-            g_cond_wait(&treecond, &treelock);
+            g_cond_wait_until(&treecond, &treelock, g_get_monotonic_time() + kMaxWaitTime);
 
         // Now that we have the lock, the tree is stable until we release it.
         g_debug("generator thread obtained treelock, finding next leaf");
@@ -138,6 +140,12 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         // Note that "finalized" means that the task itself and every node
         // along it's path to the root is complete (i.e. not pending).
         finaldepth = print_status_message(elapsed, finaldepth);
+
+        // We can collapse exceptionally long trees so that we're not wasting
+        // valuable cycles traversing linked lists. Note that we never delete a
+        // success node, but dont care about failure nodes.
+        if (g_node_max_height(tree) > kMaxTreeDepth)
+            finaldepth = collapse_finalized_failure_paths();
 
         // Scan for the next location to insert work.
         // The idea is this, from the root:
@@ -353,7 +361,6 @@ static gboolean root_path_finalized(GNode *node)
     }
 
     g_assert(G_NODE_IS_ROOT(node));
-    g_assert(node == tree);
     return true;
 }
 
@@ -434,6 +441,28 @@ void process_execute_jobs(GNode *node)
                  // Update status.
                  task->status = TASK_STATUS_FAILURE;
 
+                 // The input fd is still open here, but we now know for sure
+                 // we won't need it (because we only base tasks on the last
+                 // successful node).
+                 g_assert_cmpint(task->fd, !=, -1);
+
+                 // Therefore, we can now close it while we hold the task lock.
+                 g_close(task->fd, NULL);
+
+                 // The task is currently a zombie (because we waited with
+                 // NOWAIT), but even zombies have a pid.
+                 g_assert_cmpint(task->childpid, !=, 0);
+
+                 // We now know for sure we dont need it, so we can release
+                 // these resources.
+                 if (waitpid(task->childpid, NULL, WNOHANG) != task->childpid) {
+                    g_critical("waitpid() didn't return immediately with zombie, this shouldn't happen");
+                 }
+
+                 // Mark these resources as cleared.
+                 task->fd       = -1;
+                 task->childpid = 0;
+
                  // All done.
                  g_mutex_unlock(&task->mutex);
                  break;
@@ -462,7 +491,6 @@ static gdouble path_total_elapsed(GNode *node)
     }
 
     g_assert(G_NODE_IS_ROOT(node));
-    g_assert(node == tree);
     return elapsed;
 }
 
@@ -643,6 +671,53 @@ static void cleanup_tree(void)
     return;
 }
 
+// This routine will collapse long paths of consecutive failures to
+// compress very large trees. This should be rarely necessary.
+// XXX: must hold tree lock.
+static gint collapse_finalized_failure_paths(void)
+{
+    GNode *node = find_finalized_node(tree, false);
+    guint collapsed = 0;
+
+    // Walk backwards from the last finalized node.
+    while (!G_NODE_IS_ROOT(node) && !G_NODE_IS_ROOT(node->parent)) {
+        GNode *parent   = node->parent;
+        GNode *gparent  = parent->parent;
+        task_t *task    = node->data;
+        task_t *ptask   = parent->data;
+        task_t *gtask   = gparent->data;
+
+        if (task->status == TASK_STATUS_FAILURE && ptask->status == TASK_STATUS_FAILURE) {
+            // Make node->parent->children == node (i.e. delete parent)
+            g_node_unlink(parent);
+            g_node_unlink(node);
+
+            // Now make us a child of gparent.
+            g_node_insert(gparent, gtask->status == TASK_STATUS_SUCCESS, node);
+
+            // Keep track of how much time was spent in the deleted nodes.
+            collapsedtime += g_timer_elapsed(ptask->timer, NULL);
+
+            // We can safely free this finalized node now.
+            cleanup_tree_helper(parent, NULL);
+            g_node_destroy(parent);
+
+            collapsed++;
+        } else {
+            node = node->parent;
+        }
+    }
+
+    g_debug("collapsed %u failed nodes to optimize tree, new tree size=%u", collapsed, g_node_max_height(tree));
+
+    // Adjust as three grows.
+    if (g_node_max_height(tree) > (kMaxTreeDepth >> 1))
+        kMaxTreeDepth <<= 1;
+
+    // TODO: if the tree starts getting too long, we could just set tree = final?
+    return g_node_depth(find_finalized_node(tree, true));
+}
+
 static gint print_status_message(GTimer *elapsed, gint finaldepth)
 {
     GNode  *finalnode;
@@ -658,6 +733,9 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
     // We count the elapsed time to the last finalized node regardless of
     // success, this makes the user time calculation more accurate.
     finalelapsed = path_total_elapsed(find_finalized_node(tree, false));
+
+    // We may have removed nodes to prune large trees.
+    finalelapsed += collapsedtime;
 
     // Print status messages if this is a terminal.
     if (isatty(STDOUT_FILENO)) {

@@ -31,6 +31,8 @@ extern guint kMaxUnprocessed;
 extern guint kCleanupThreads;
 extern guint kProcessThreads;
 extern guint kWorkerPollDelay;
+extern guint kMaxWaitTime;
+extern guint kMaxTreeDepth;
 extern gchar *kOutputFile;
 extern gchar *kCommandPath;
 extern gboolean kKillFailedWorkers;

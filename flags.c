@@ -43,6 +43,14 @@ guint kCleanupThreads = 4;
 // How long to sleep between checking if we need more work.
 guint kWorkerPollDelay = 10000;
 
+// Maximum amount of time we will wait to see if we need to create more work.
+guint kMaxWaitTime = 5 * G_TIME_SPAN_SECOND;
+
+// If the tree gets too big, we start spending a lot of time traversing it. We
+// can collapse long paths of consecutive failures into one, compressing the
+// tree and reducing overhead.
+guint kMaxTreeDepth = 256;
+
 // Name of the file to store the final result.
 gchar *kOutputFile = "halfempty.out";
 

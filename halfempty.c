@@ -43,7 +43,7 @@
 // Commandline options parsing and main() function.
 //
 
-#define HALFEMPTY_VERSION_STRING "0.10"
+#define HALFEMPTY_VERSION_STRING "0.20"
 
 void signal_handler(int sig, siginfo_t *info, void *ucontext)
 {
@@ -191,7 +191,7 @@ int main(int argc, char **argv)
         // The default for RLIMIT_NOFILE on macOS is insanely small (256), lets
         // turn it up to something reasonable.
         if (sysctlbyname("kern.maxfilesperproc", &limfiles.rlim_cur, &length, NULL, 0) == 0) {
-            g_warning("failed to query kern.maxfilesperproc");
+            _warning("failed to query kern.maxfilesperproc");
         }
 #else
         // Try to turn up the rlimit for RLIMIT_NOFILE, at least on some

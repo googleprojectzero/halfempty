@@ -63,6 +63,7 @@ static gint collapse_finalized_failure_paths(void);
 //
 
 static GNode *tree;
+static GNode *retired;
 static GMutex treelock;
 static GCond treecond;
 static GThreadPool *threadpool;
@@ -93,6 +94,7 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
     finaldepth      = 0;
     root            = g_new0(task_t, 1);
     tree            = g_node_new(root);
+    retired         = g_node_new(NULL);
     root->fd        = fd;
     root->size      = g_file_size(fd);
     root->status    = TASK_STATUS_PENDING;
@@ -268,6 +270,7 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         show_tree_statistics();
         duplicate_final_node(outfd);
         cleanup_tree();
+        g_timer_destroy(elapsed);
         return true;
 
     delay:
@@ -471,6 +474,7 @@ static gdouble path_total_elapsed(GNode *node)
         task_t *task = node->data;
 
         g_assert_nonnull(task);
+
         elapsed += g_timer_elapsed(task->timer, NULL);
     }
 
@@ -540,10 +544,14 @@ static void show_tree_statistics(void)
 
     // Visit every node
     g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
+    g_node_traverse(retired, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
+
+    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed", stats.failure, stats.success, stats.discarded, g_node_n_children(retired));
+    g_print("%0.3f seconds of compute was required for final path", stats.elapsed);
 
     g_mutex_unlock(&treelock);
-    g_print("%u nodes failed, %u worked, %u discarded", stats.failure, stats.success, stats.discarded);
-    g_print("%0.3f seconds of compute was required for final path", stats.elapsed);
+
+    return;
 }
 
 // Find the deepest finalized node, optionally with TASK_STATUS_SUCCESS
@@ -632,7 +640,13 @@ static gboolean cleanup_tree_helper(GNode *node, gpointer user)
     g_debug("cleanup task %p, fd: %d", task, task->fd);
 
     cleanup_orphaned_tasks(task);
+
     g_free(task->user);
+
+    if (task->timer) {
+        g_timer_destroy(task->timer);
+    }
+
     g_free(task);
     return false;
 }
@@ -645,9 +659,11 @@ static void cleanup_tree(void)
 
     // Visit every node
     g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, cleanup_tree_helper, NULL);
+    g_node_traverse(retired, G_IN_ORDER, G_TRAVERSE_ALL, -1, cleanup_tree_helper, NULL);
 
     // Destroy tree
     g_node_destroy(tree);
+    g_node_destroy(retired);
 
     g_debug("cleanup_tree() complete");
 
@@ -663,49 +679,112 @@ static void cleanup_tree(void)
 // XXX: must hold tree lock.
 static gint collapse_finalized_failure_paths(void)
 {
-    GNode *node = find_finalized_node(tree, false);
-    guint collapsed = 0;
+    GNode *finalsuccess;
+    GNode *finalnode;
+    task_t *task;
 
-    // Walk backwards from the last finalized node.
-    while (!G_NODE_IS_ROOT(node) && !G_NODE_IS_ROOT(node->parent)) {
-        GNode *parent   = node->parent;
-        GNode *gparent  = parent->parent;
-        task_t *task    = node->data;
-        task_t *ptask   = parent->data;
-        task_t *gtask   = gparent->data;
+    finalsuccess = find_finalized_node(tree, true);
 
-        if (task->status == TASK_STATUS_FAILURE && ptask->status == TASK_STATUS_FAILURE) {
-            // Make node->parent->children == node (i.e. delete parent)
-            g_node_unlink(parent);
-            g_node_unlink(node);
+    // There must always be at least one success node.
+    g_assert_nonnull(finalsuccess);
 
-            // Now make us a child of gparent.
-            g_node_insert(gparent, gtask->status == TASK_STATUS_SUCCESS, node);
+    // Find the final success node, and move it up right up to the root.
+    // All the others are transferred to the retired tree for cleanup.
+    // Makre sure finalsuccess is not the root node, and not already the first
+    // node where we would put it anyway.
+    if (finalsuccess != tree && g_node_success(tree) != finalsuccess) {
+        GNode *head = g_node_success(tree);
+        GNode *tail = finalsuccess->parent;
 
-            // Keep track of how much time was spent in the deleted nodes.
-            collapsedtime += g_timer_elapsed(ptask->timer, NULL);
+        g_assert(g_node_is_ancestor(tree, head) == TRUE);
+        g_assert(g_node_is_ancestor(tree, finalsuccess) == TRUE);
+        g_assert(g_node_is_ancestor(head, finalsuccess) == TRUE);
 
-            // We can safely free this finalized node now.
-            g_thread_pool_push(cleanup, ptask, NULL);
+        g_node_unlink(head);
 
-            // We can't destroy this node here, because we'll leak the task,
-            // just put it somewhere out of the way where cleanup_tree() can
-            // find it (i.e. the failure path of the root, which cannot fail).
-            g_assert_nonnull(g_node_failure(tree));
-            g_assert_null(g_node_failure(tree)->data);
-            g_node_insert(g_node_failure(tree), -1, parent);
+        g_assert(g_node_is_ancestor(tree, head) == FALSE);
+        g_assert(g_node_is_ancestor(tree, finalsuccess) == FALSE);
+        g_assert(g_node_is_ancestor(head, finalsuccess) == TRUE);
+        g_assert(g_node_is_ancestor(tail, finalsuccess) == TRUE);
 
-            collapsed++;
-        } else {
-            node = node->parent;
-        }
+        g_node_unlink(finalsuccess);
+
+        g_assert(g_node_is_ancestor(tree, head) == FALSE);
+        g_assert(g_node_is_ancestor(tree, finalsuccess) == FALSE);
+        g_assert(g_node_is_ancestor(head, finalsuccess) == FALSE);
+        g_assert(g_node_is_ancestor(tail, finalsuccess) == FALSE);
+
+        g_node_insert(tree, TRUE, finalsuccess);
+
+        g_assert(g_node_is_ancestor(tree, head) == FALSE);
+        g_assert(g_node_is_ancestor(tree, finalsuccess) == TRUE);
+        g_assert(g_node_is_ancestor(head, finalsuccess) == FALSE);
+
+        // Keep track of how much time we're collapsing.
+        collapsedtime += path_total_elapsed(tail);
+
+        // Cleanup all tasks on this retired tree.
+        g_node_traverse(head, G_PRE_ORDER, G_TRAVERSE_ALL, -1, abort_task_helper, NULL);
+
+        // Put it in the retired tree for cleanup by cleanup_tree()
+        g_node_insert(retired, -1, head);
     }
 
-    g_debug("collapsed %u failed nodes to optimize tree, new tree size=%u", collapsed, g_node_max_height(tree));
-    g_debug("there are %u orphaned nodes awaiting gc", g_node_n_children(g_node_failure(tree)));
+    // Note that this returns the final node (regardless of success/fail).
+    finalnode = find_finalized_node(tree, false);
 
-    // Adjust as tree grows.
-    kMaxTreeDepth += g_node_max_height(tree);
+    // There must always be at least one node.
+    g_assert_nonnull(finalnode);
+    g_assert_nonnull(finalnode->data);
+
+    // Check this node is not already in place.
+    if (finalsuccess != finalnode && g_node_success(finalsuccess) != finalnode && g_node_success(finalsuccess) != finalnode->parent) {
+        GNode *head = g_node_success(finalsuccess);
+        GNode *tail = finalnode->parent;
+
+        g_assert(g_node_is_ancestor(tree, finalnode) == TRUE);
+        g_assert(g_node_is_ancestor(finalsuccess, finalnode) == TRUE);
+        g_assert(g_node_is_ancestor(finalsuccess, head) == TRUE);
+        g_assert(g_node_is_ancestor(finalsuccess, tail) == TRUE);
+        g_assert(g_node_is_ancestor(tail, finalnode) == TRUE);
+
+        g_node_unlink(head);
+
+        g_assert(g_node_is_ancestor(tree, finalnode) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, finalnode) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, head) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, tail) == FALSE);
+        g_assert(g_node_is_ancestor(tail, finalnode) == TRUE);
+
+        g_node_unlink(finalnode);
+
+        g_assert(g_node_is_ancestor(tree, finalnode) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, finalnode) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, head) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, tail) == FALSE);
+        g_assert(g_node_is_ancestor(tail, finalnode) == FALSE);
+
+        // It's either root (must be success), or final success.
+        task = finalsuccess->data;
+        g_assert_cmpint(task->status, ==, TASK_STATUS_SUCCESS);
+
+        g_node_insert(finalsuccess, TRUE, finalnode);
+
+        g_assert(g_node_is_ancestor(tree, finalnode) == TRUE);
+        g_assert(g_node_is_ancestor(finalsuccess, finalnode) == TRUE);
+        g_assert(g_node_is_ancestor(finalsuccess, head) == FALSE);
+        g_assert(g_node_is_ancestor(finalsuccess, tail) == FALSE);
+        g_assert(g_node_is_ancestor(tail, finalnode) == FALSE);
+
+        // Keep track of how much time we're collapsing.
+        collapsedtime += path_total_elapsed(tail);
+
+        // Cleanup all tasks on this retired tree.
+        g_node_traverse(head, G_PRE_ORDER, G_TRAVERSE_ALL, -1, abort_task_helper, NULL);
+
+        // Put it in the retired tree for cleanup by cleanup_tree()
+        g_node_insert(retired, -1, head);
+    }
 
     // Return the new depth so that status messages are consistent.
     return g_node_depth(find_finalized_node(tree, true));

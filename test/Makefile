@@ -15,7 +15,7 @@ verify.in:
 	shuf < /usr/share/dict/words > $@
 
 %.out: %.sh %.in
-	../halfempty $$(awk '/^# flag: / { print $$3 }' $<) -q -o $@ $+
+	env G_DEBUG=gc-friendly G_SLICE=always-malloc ../halfempty $$(awk '/^# flag: / { print $$3 }' $<) -q -o $@ $+
 
 clean:
 	rm -f -- *.out *.in

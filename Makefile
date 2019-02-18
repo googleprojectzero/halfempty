@@ -18,6 +18,11 @@ ifeq ($(shell uname),Darwin)
     EXTRA = sendfile_generic.o splice_generic.o
 endif
 
+# splice() does not appear to work reliably on Windows
+ifeq ($(findstring Microsoft,$(shell uname -r)), Microsoft)
+    EXTRA = splice_generic.o sendfile_generic.o
+endif
+
 halfempty: proc.o bisect.o util.o zero.o tree.o flags.o halfempty.o limits.o $(EXTRA)
 
 util.o: monitor.h util.c

@@ -1,5 +1,5 @@
 CC          = gcc
-CFLAGS      = -Wall -std=gnu99 -O2 -fPIC -Wno-format-zero-length -Wno-unused-parameter
+CFLAGS      = -Wall -std=gnu99 -O2 -ggdb3 -march=native -fPIC -Wno-format-zero-length -Wno-unused-parameter
 LDFLAGS     = -pie
 CPPFLAGS    = -UNDEBUG -UG_DISABLE_ASSERT `getconf LFS_CFLAGS` `pkg-config --cflags glib-2.0` -D_GNU_SOURCE
 LDLIBS      = `pkg-config --libs glib-2.0`

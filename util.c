@@ -148,19 +148,20 @@ gboolean generate_dot_tree(GNode *root, gchar *filename)
     return true;
 }
 
-// XXX use O_TMPFILE
 gint g_unlinked_tmp(GError **error)
 {
+#ifdef O_TMPFILE
+    gint   fd = open("/tmp", O_TMPFILE | O_RDWR);
+#else
     gint   fd;
     gchar *filename;
 
     fd = g_file_open_tmp(NULL, &filename, error);
-
     if (fd != -1) {
         g_unlink(filename);
         g_free(filename);
     }
-
+#endif
     return fd;
 }
 
@@ -182,15 +183,15 @@ gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count)
         result = g_sendfile(outfd, infd, offset, count - total);
 
         if (result < 0)
-	        break;
+           break;
 
         total += result;
 
         g_assert_cmpint(total, <=, count);
     }
 
-	if (total != count)
-		g_debug("failed to write requested amount of data, will return fail");
+    if (total != count)
+        g_debug("failed to write requested amount of data, will return fail");
 
     return total == count;
 }

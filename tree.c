@@ -812,8 +812,8 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
     // Print status messages if this is a terminal.
     if (isatty(STDOUT_FILENO)) {
             printf("treesize=%u, height=%u, unproc=%u, real=%.1fs, user=%.1fs, speedup=~%.1fs\r",
-                    g_node_n_nodes(tree, G_TRAVERSE_ALL),
-                    g_node_max_height(tree),
+                    g_node_n_nodes(tree, G_TRAVERSE_ALL) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
+                    g_node_max_height(tree) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
                     g_thread_pool_unprocessed(threadpool),
                     g_timer_elapsed(elapsed, NULL),
                     finalelapsed,
@@ -824,7 +824,7 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
         finaldepth = g_node_depth(finalnode);
         g_print("New finalized size: %lu (depth=%u) real=%.1fs, user=%.1fs, speedup=~%.1fs",
                 finaltask->size,
-                g_node_depth(finalnode),
+                g_node_depth(finalnode) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
                 g_timer_elapsed(elapsed, NULL),
                 finalelapsed,
                 finalelapsed - g_timer_elapsed(elapsed, NULL));

@@ -546,7 +546,7 @@ static void show_tree_statistics(void)
     g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
     g_node_traverse(retired, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
 
-    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed", stats.failure, stats.success, stats.discarded, g_node_n_children(retired));
+    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed", stats.failure, stats.success, stats.discarded, g_node_n_nodes(retired, G_TRAVERSE_ALL));
     g_print("%0.3f seconds of compute was required for final path", stats.elapsed);
 
     g_mutex_unlock(&treelock);

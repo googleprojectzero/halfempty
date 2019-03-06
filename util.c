@@ -160,11 +160,11 @@ gint g_unlinked_tmp(GError **error)
     // O_TMPFILE can be defined but still fail on some systems.
     if (fd == -1) {
         fd = g_file_open_tmp(NULL, &filename, error);
-    }
 
-    if (fd != -1) {
-        g_unlink(filename);
-        g_free(filename);
+        if (fd != -1) {
+            g_unlink(filename);
+            g_free(filename);
+        }
     }
     return fd;
 }

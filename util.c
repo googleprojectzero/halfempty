@@ -150,18 +150,22 @@ gboolean generate_dot_tree(GNode *root, gchar *filename)
 
 gint g_unlinked_tmp(GError **error)
 {
-#ifdef O_TMPFILE
-    gint   fd = open("/tmp", O_TMPFILE | O_RDWR);
-#else
-    gint   fd;
+    gint fd = -1;
     gchar *filename;
 
-    fd = g_file_open_tmp(NULL, &filename, error);
+#ifdef O_TMPFILE
+    fd = open("/tmp", O_TMPFILE | O_RDWR, 0600);
+#endif
+
+    // O_TMPFILE can be defined but still fail on some systems.
+    if (fd == -1) {
+        fd = g_file_open_tmp(NULL, &filename, error);
+    }
+
     if (fd != -1) {
         g_unlink(filename);
         g_free(filename);
     }
-#endif
     return fd;
 }
 

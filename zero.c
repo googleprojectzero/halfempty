@@ -47,7 +47,9 @@ typedef struct {
 static gchar kZeroCharacter = 0;
 
 static const GOptionEntry kZeroOptions[] = {
-    { "zero-char", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kZeroCharacter, "Use this byte value when simplifying (0-255) (default=0).", "byte" },
+    { "zero-char", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kZeroCharacter,
+        "Use this byte value when simplifying (0-255) (default=0).",
+        "byte" },
     { NULL },
 };
 
@@ -69,7 +71,7 @@ static task_t * strategy_zero_data(GNode *node)
     task_t *child  = NULL;              // The new task we're about to return.
     task_t *parent = node->data;        // The task above us in the tree.
     task_t *source = parent;            // Where we get our data from.
-    guint   adjust = 0;                 // How many times we tried to fit a chunk.
+    guint   adjust = 0;                 // How many times we tried to fit chunk.
 
     // We don't hold the lock on parent, but user data will never change.
     bisect_t *parentstatus  = parent->user;
@@ -79,7 +81,9 @@ static task_t * strategy_zero_data(GNode *node)
 
     // If this is the root node, we're being called to initialize a new tree.
     if (parentstatus == NULL && G_NODE_IS_ROOT(node)) {
-        g_debug("initializing a new root node %p, size %lu", node, parent->size);
+        g_debug("initializing a new root node %p, size %lu",
+                node,
+                parent->size);
 
         // If this was already set, then something has gone wrong.
         g_assert_cmpint(g_node_n_children(node), ==, 0);
@@ -101,7 +105,7 @@ static task_t * strategy_zero_data(GNode *node)
 
     // Check if we've finished a chunksize.
     if (parentstatus->offset + parentstatus->chunksize > parent->size) {
-        g_info("reached end of cycle (offset %lu + chunksize %lu > size %lu), starting next cycle",
+        g_info("reached end of cycle (offset %lu + chunksize %lu > size %lu)",
                parentstatus->offset,
                childstatus->chunksize,
                parent->size);
@@ -127,7 +131,9 @@ static task_t * strategy_zero_data(GNode *node)
     // already zeroed out. This means we need to start at the root, and see if
     // our offset + chunksize is already inside a SUCCESS node (don't care about
     // FAIL, because we're smaller).
-    for (GNode *current = node; !G_NODE_IS_ROOT(current); current = current->parent) {
+    for (GNode *current = node;
+         !G_NODE_IS_ROOT(current);
+         current = current->parent) {
         gboolean adjusted = false;
         task_t  *currtask = current->data;
 
@@ -140,19 +146,25 @@ static task_t * strategy_zero_data(GNode *node)
             // An ancestor cannot possibly have a smaller chunksize.
             g_assert_cmpint(childstatus->chunksize, <=, b->chunksize);
 
-            while (childstatus->offset >= b->offset && childstatus->offset + childstatus->chunksize <= b->offset + b->chunksize) {
+            while (childstatus->offset >= b->offset
+                && childstatus->offset + childstatus->chunksize
+                    <= b->offset + b->chunksize) {
                 adjusted = true;
                 adjust++;
-                g_debug("offset %lu (chunksize %lu) already encapsulated, trying next offset", childstatus->offset, childstatus->chunksize);
+                g_debug("offset %lu (chunksize %lu) already encapsulated",
+                        childstatus->offset,
+                        childstatus->chunksize);
 
-                if ((childstatus->offset += childstatus->chunksize) > parent->size) {
-                    g_debug("adjustment caused a new cycle to start, new chunksize %lu", childstatus->chunksize >> 1);
+                if ((childstatus->offset += childstatus->chunksize)
+                        > parent->size) {
+                    g_debug("adjustment caused a new cycle to start, %lu",
+                            childstatus->chunksize >> 1);
 
                     childstatus->offset = 0;
                     childstatus->chunksize >>= 1;
 
                     if (childstatus->chunksize == 0) {
-                        g_info("final cycle complete, cannot start a new cycle");
+                        g_info("final cycle complete.");
                         goto nochild;
                     }
                 }
@@ -164,9 +176,13 @@ static task_t * strategy_zero_data(GNode *node)
         }
     }
 
-    g_info("made %u offset adjustments scanning tree, final offset: %lu, chunksize: %lu", adjust, childstatus->offset, childstatus->chunksize);
+    g_info("made %u offset adjustments, final offset: %lu, chunksize: %lu",
+           adjust,
+           childstatus->offset,
+           childstatus->chunksize);
 
-    // Traverse up the tree to find the first SUCCESS node, we base our data on that.
+    // Traverse up the tree to find the first SUCCESS node, we base our data on
+    // that.
     if (source->status != TASK_STATUS_SUCCESS) {
         for (GNode *current = node; current; current = current->parent) {
             source = current->data;
@@ -183,25 +199,33 @@ static task_t * strategy_zero_data(GNode *node)
     // What if it is already zero though, it's pointless trying it again.
     gpointer b1 = g_malloc0(childstatus->chunksize);
     gpointer b2 = g_malloc0(childstatus->chunksize);
-    gssize count = pread(source->fd, b1, childstatus->chunksize, childstatus->offset);
+    gssize count = pread(source->fd,
+                         b1,
+                         childstatus->chunksize,
+                         childstatus->offset);
 
     if (kZeroCharacter != 0) {
         memset(b2, kZeroCharacter, childstatus->chunksize);
     }
 
     if (count != childstatus->chunksize) {
-        g_info("%ld != %lu (offset %lu, size %lu, chunksize %lu)", count, childstatus->chunksize, childstatus->offset, parent->size, childstatus->chunksize);
-        if (count < 0) {
-            g_assert(false);
-        }
+        g_info("%ld != %lu (offset %lu, size %lu, chunksize %lu)",
+               count,
+               childstatus->chunksize,
+               childstatus->offset,
+               parent->size,
+               childstatus->chunksize);
+        g_assert_cmpint(count, >=, 0);
     }
+
     if (memcmp(b1, b2, childstatus->chunksize) == 0) {
-        g_info("no need to test this guy, he was already all %#02x", kZeroCharacter);
+        g_info("skipping chunk, already all %#02x", kZeroCharacter);
         g_free(b1);
         g_free(b2);
 
         if ((childstatus->offset += childstatus->chunksize) > parent->size) {
-            g_debug("adjustment caused a new cycle to start, new chunksize %lu", childstatus->chunksize >> 1);
+            g_debug("adjustment caused a new cycle to start, new chunksize %lu",
+                    childstatus->chunksize >> 1);
 
             childstatus->offset = 0;
             childstatus->chunksize >>= 1;
@@ -233,23 +257,38 @@ static task_t * strategy_zero_data(GNode *node)
     // Size should never change for this strategy.
     child->size = source->size;
 
-    // i didn't think this was possible because how can child be smaller than an ancestor?
+    // i didn't think this was possible because how can child be smaller than
+    // an ancestor?
     if (childstatus->offset > source->size)
         goto nochildunlock;
 
-    if (g_sendfile_all(child->fd, source->fd, 0, childstatus->offset) == false) {
-        g_warning("sendfile failed while trying to construct new file");
-        g_assert(false);
+    if (g_sendfile_all(child->fd,
+                       source->fd,
+                       0,
+                       childstatus->offset) == false) {
+        g_critical("sendfile failed while trying to construct new file");
+        g_assert_not_reached();
         goto nochildunlock;
     }
 
     if (kZeroCharacter == '\0') {
         // Insert some nuls, ftruncate() will do this for free.
-        ftruncate(child->fd, MIN(source->size, childstatus->offset + childstatus->chunksize));
+        if (ftruncate(child->fd,
+                      MIN(source->size,
+                          childstatus->offset + childstatus->chunksize)) != 0) {
+            g_warning("ftruncate failure while zeroing chunk, %m");
+        }
     } else {
-        gchar *buf = g_malloc(MIN(source->size - childstatus->offset, childstatus->chunksize));
-        memset(buf, kZeroCharacter, MIN(source->size - childstatus->offset, childstatus->chunksize));
-        write(child->fd, buf, MIN(source->size - childstatus->offset, childstatus->chunksize));
+        gchar *buf = g_malloc(MIN(source->size - childstatus->offset,
+                                  childstatus->chunksize));
+        memset(buf, kZeroCharacter, MIN(source->size - childstatus->offset,
+                                        childstatus->chunksize));
+
+        if (write(child->fd, buf, MIN(source->size - childstatus->offset,
+                                      childstatus->chunksize)) < 0) {
+            g_warning("write failed while zeroing chunk, %m");
+        }
+        
         g_free(buf);
     }
 
@@ -260,9 +299,11 @@ static task_t * strategy_zero_data(GNode *node)
         if (g_sendfile_all(child->fd,
                            source->fd,
                            childstatus->offset + childstatus->chunksize,
-                           source->size - childstatus->chunksize - childstatus->offset) == false) {
+                           source->size
+                            - childstatus->chunksize
+                            - childstatus->offset) == false) {
             g_warning("sendfile failed while trying to construct new file");
-            g_assert(false);
+            g_assert_not_reached();
             goto nochildunlock;
         }
     }

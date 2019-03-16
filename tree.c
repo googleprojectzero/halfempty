@@ -76,7 +76,10 @@ strategy_t kStrategyList[MAX_STRATEGIES];
 // This is the main driver that manages the bisection tree and calls the
 // strategy callbacks. It waits for workunits to complete, and then fills up
 // the queue again.
-gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulong flags)
+gboolean build_bisection_tree(gint fd,
+                              strategy_cb_t callback,
+                              gint *outfd,
+                              gulong flags)
 {
     gint finaldepth;
     gint backoff;
@@ -85,10 +88,18 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
 
     // Initialize threadpool workers, each one simply executes a testcase and
     // updates the tree with the result.
-    threadpool = g_thread_pool_new((GFunc) process_execute_jobs, NULL, kProcessThreads, TRUE, NULL);
+    threadpool = g_thread_pool_new((GFunc) process_execute_jobs,
+                                   NULL,
+                                   kProcessThreads,
+                                   TRUE,
+                                   NULL);
 
     // This threadpool just cleans up tasks and mostly just waits on locks.
-    cleanup = g_thread_pool_new((GFunc) cleanup_orphaned_tasks, NULL, kCleanupThreads, FALSE, NULL);
+    cleanup = g_thread_pool_new((GFunc) cleanup_orphaned_tasks,
+                                NULL,
+                                kCleanupThreads,
+                                FALSE,
+                                NULL);
 
     backoff         = 0;
     finaldepth      = 0;
@@ -105,11 +116,17 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         g_print("Verifying the original input executes successfully... (skip with --noverify)");
         process_execute_jobs(tree);
         if (root->status != TASK_STATUS_SUCCESS) {
-            g_warning("This program expected `%s` to return successfully (exitcode zero) for the original input", kCommandPath);
-            g_warning("Try it yourself to verify it's working");
+            g_message("This program expected `%s` to return successfully",
+                      kCommandPath);
+            g_message("for the original input (i.e. exitcode zero).");
+            g_message("Try it yourself to verify it's working.");
+            g_message("Use a command like: `cat %s | %s || echo failed`",
+                      kInputFile,
+                      kCommandPath);
             return false;
         } else {
-            g_print("The original input file succeeded after %.1f seconds.", g_timer_elapsed(root->timer, NULL));
+            g_print("The original input file succeeded after %.1f seconds.",
+                    g_timer_elapsed(root->timer, NULL));
         }
     } else {
         // Just fake it.
@@ -130,10 +147,13 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         // Take the treelock so we can modify the tree.
         g_mutex_lock(&treelock);
 
-        // Don't generate too much work or we'll explore too far down a wrong path.
+        // Don't generate too much work or we'll explore too far down a wrong
+        // path.
         // This condition is always signaled when a workunit completes.
         while (g_thread_pool_unprocessed(threadpool) > kMaxUnprocessed)
-            g_cond_wait_until(&treecond, &treelock, g_get_monotonic_time() + kMaxWaitTime);
+            g_cond_wait_until(&treecond,
+                              &treelock,
+                              g_get_monotonic_time() + kMaxWaitTime);
 
         // Now that we have the lock, the tree is stable until we release it.
         g_debug("generator thread obtained treelock, finding next leaf");
@@ -167,8 +187,11 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
             if (currtask == NULL) {
                 current->data = callback(current->parent);
 
-                // I use depth to indent the messages so you can see the progress.
-                g_debug("%*sfound a NULL task pointer, generating task", depth, "");
+                // I use depth to indent the messages so you can see the
+                // progress.
+                g_debug("%*sfound a NULL task pointer, generating task",
+                        depth,
+                        "");
 
                 // Make sure we were able to generate a workunit for this node.
                 if (current->data == NULL) {
@@ -199,13 +222,19 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
             // We should never traverse into a discarded branch.
             g_assert_cmpint(currtask->status, !=, TASK_STATUS_DISCARDED);
 
-            g_debug("%*sfound a %s task, size %lu ", depth, "", string_from_status(currtask->status), currtask->size);
+            g_debug("%*sfound a %s task, size %lu ",
+                    depth,
+                    "",
+                    string_from_status(currtask->status),
+                    currtask->size);
 
             // If this is a leaf node, then we need to append a new task here.
             if (G_NODE_IS_LEAF(current)) {
                 task_t *child = callback(current);
 
-                g_debug("%*snode is a leaf node, generating children", depth, "");
+                g_debug("%*snode is a leaf node, generating children",
+                        depth,
+                        "");
 
                 if (child == NULL) {
                     g_debug("%*sno more children possible", depth, "");
@@ -213,8 +242,11 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
                     // we're finished - there might be unprocessed work in the
                     // queue that changes our path through the tree.
                     if (root_path_finalized(current) == true) {
-                        // The threadpool must be empty, because we've discarded everything else?
-                        g_assert_cmpint(g_thread_pool_unprocessed(threadpool), ==, 0);
+                        // The threadpool must be empty, because we've
+                        // discarded everything else?
+                        g_assert_cmpint(g_thread_pool_unprocessed(threadpool),
+                                        ==,
+                                        0);
                         goto finalized;
                     }
                     goto delay;
@@ -224,18 +256,31 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
                 // so, we know which route to take. otherwise, we just guess
                 // it's going to fail.
                 if (currtask->status == TASK_STATUS_SUCCESS) {
-                    g_node_insert(current, false, g_node_new(NULL));                                        // Failure
-                    g_thread_pool_push(threadpool, g_node_insert(current, true, g_node_new(child)), NULL);  // Success
+                    // Placeholder Failure node
+                    g_node_insert(current, false, g_node_new(NULL));
+                    // Success node
+                    g_thread_pool_push(threadpool,
+                                       g_node_insert(current,
+                                                     true,
+                                                     g_node_new(child)),
+                                                     NULL);
                 } else {
-                    g_thread_pool_push(threadpool, g_node_insert(current, false, g_node_new(child)), NULL); // Failure
-                    g_node_insert(current, true, g_node_new(NULL));                                         // Success
+                    // Failure node
+                    g_thread_pool_push(threadpool,
+                                       g_node_insert(current,
+                                                     false,
+                                                     g_node_new(child)),
+                                                     NULL);
+                    // Placeholder Success node
+                    g_node_insert(current, true, g_node_new(NULL));
                 }
 
                 // All done.
                 break;
             }
 
-            // The node is not a leaf, so we haven't found the right place to insert work yet.
+            // The node is not a leaf, so we haven't found the right place to
+            // insert work yet.
             g_debug("%*snode is not a leaf, traversing", depth, "");
 
             // This is not a leaf, so traverse
@@ -259,7 +304,8 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         continue;
 
     finalized:
-        g_print("Reached the end of our path through tree, all nodes were finalized");
+        g_print("Reached the end of our path through tree, "
+                "all nodes were finalized");
 
         // Unlock the tree and let threadpool workers finish.
         g_mutex_unlock(&treelock);
@@ -274,7 +320,8 @@ gboolean build_bisection_tree(gint fd, strategy_cb_t callback, gint *outfd, gulo
         return true;
 
     delay:
-        g_debug("generator thread releasing tree lock (delayed, ctr %u)", backoff);
+        g_debug("generator thread releasing tree lock (delayed, ctr %u)",
+                 backoff);
         g_mutex_unlock(&treelock);
         g_usleep(kWorkerPollDelay * ++backoff);
         continue;
@@ -298,17 +345,24 @@ void cleanup_orphaned_tasks(task_t *task)
         kill(-childpid, kKillFailedWorkersSignal);
     }
 
-    g_debug("thread %p cleaning up task %p (pid=%d), now attempting to lock", g_thread_self(), task, task->childpid);
+    g_debug("thread %p cleaning up task %p (pid=%d), now attempting to lock",
+            g_thread_self(),
+            task,
+            task->childpid);
 
     g_mutex_lock(&task->mutex);
 
-    g_debug("thread %p acquired lock on task %p, state %s", g_thread_self(), task, string_from_status(task->status));
+    g_debug("thread %p acquired lock on task %p, state %s",
+            g_thread_self(),
+            task,
+            string_from_status(task->status));
 
     // Ensure pending tasks dont get executed. 
     if (task->status == TASK_STATUS_PENDING)
         task->status = TASK_STATUS_DISCARDED;
 
-    // We hold the lock on this task now, so can clean up the file descriptor and zombie.
+    // We hold the lock on this task now, so can clean up the file descriptor
+    // and zombie.
     g_close(task->fd, NULL);
 
     if (task->childpid > 0) {
@@ -346,7 +400,12 @@ void abort_pending_tasks(GNode *root)
     // Prevent any new jobs from being inserted.
     g_mutex_lock(&treelock);
 
-    g_node_traverse(root, G_PRE_ORDER, G_TRAVERSE_ALL, -1, abort_task_helper, NULL);
+    g_node_traverse(root,
+                    G_PRE_ORDER,
+                    G_TRAVERSE_ALL,
+                    -1,
+                    abort_task_helper,
+                    NULL);
 
     // Let work continue.
     g_mutex_unlock(&treelock);
@@ -361,7 +420,8 @@ static gboolean root_path_finalized(GNode *node)
 
         g_assert_nonnull(task);
 
-        if (task->status != TASK_STATUS_SUCCESS && task->status != TASK_STATUS_FAILURE)
+        if (task->status != TASK_STATUS_SUCCESS
+         && task->status != TASK_STATUS_FAILURE)
             return false;
     }
 
@@ -439,7 +499,10 @@ void process_execute_jobs(GNode *node)
                  // All non-zero exit codes and failures are discarded.
         default: g_debug("unexpected result %d from task %p", result, task);
                  // fallthrough
-        case  1: g_debug("task %p failed, fd %d, pid %d", task, task->fd, task->childpid);
+        case  1: g_debug("task %p failed, fd %d, pid %d",
+                         task,
+                         task->fd,
+                         task->childpid);
 
                  g_assert_cmpint(task->status, ==, TASK_STATUS_PENDING);
 
@@ -529,7 +592,9 @@ static void show_tree_statistics(void)
 
     g_mutex_lock(&treelock);
 
-    g_info("Analyzing tree treesize=%u, height=%u", g_node_n_nodes(tree, G_TRAVERSE_ALL), g_node_max_height(tree));
+    g_info("Analyzing tree treesize=%u, height=%u",
+           g_node_n_nodes(tree, G_TRAVERSE_ALL),
+           g_node_max_height(tree));
 
     if (kGenerateDotFile) {
         gchar dotfile[] = "finaltree.XXXXXX.dot";
@@ -537,17 +602,33 @@ static void show_tree_statistics(void)
         // I don't want the descriptor, just the filename.
         g_close(g_mkstemp(dotfile), NULL);
 
-        g_print("Generating DOT file of final tree to %s (view it with xdot)...", dotfile);
+        g_print("Generating DOT file of final tree to %s (view it with xdot)...",
+                dotfile);
 
         generate_dot_tree(tree, dotfile);
     }
 
     // Visit every node
-    g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
-    g_node_traverse(retired, G_IN_ORDER, G_TRAVERSE_ALL, -1, analyze_tree_helper, &stats);
+    g_node_traverse(tree,
+                    G_IN_ORDER,
+                    G_TRAVERSE_ALL,
+                    -1,
+                    analyze_tree_helper,
+                    &stats);
+    g_node_traverse(retired,
+                    G_IN_ORDER,
+                    G_TRAVERSE_ALL,
+                    -1,
+                    analyze_tree_helper,
+                    &stats);
 
-    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed", stats.failure, stats.success, stats.discarded, g_node_n_nodes(retired, G_TRAVERSE_ALL));
-    g_print("%0.3f seconds of compute was required for final path", stats.elapsed);
+    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed",
+            stats.failure,
+            stats.success,
+            stats.discarded,
+            g_node_n_nodes(retired, G_TRAVERSE_ALL));
+    g_print("%0.3f seconds of compute was required for final path",
+            stats.elapsed);
 
     g_mutex_unlock(&treelock);
 
@@ -658,8 +739,18 @@ static void cleanup_tree(void)
     g_debug("cleanup_tree() acquired lock, about to free all resources");
 
     // Visit every node
-    g_node_traverse(tree, G_IN_ORDER, G_TRAVERSE_ALL, -1, cleanup_tree_helper, NULL);
-    g_node_traverse(retired, G_IN_ORDER, G_TRAVERSE_ALL, -1, cleanup_tree_helper, NULL);
+    g_node_traverse(tree,
+                    G_IN_ORDER,
+                    G_TRAVERSE_ALL,
+                    -1,
+                    cleanup_tree_helper,
+                    NULL);
+    g_node_traverse(retired,
+                    G_IN_ORDER,
+                    G_TRAVERSE_ALL,
+                    -1,
+                    cleanup_tree_helper,
+                    NULL);
 
     // Destroy tree
     g_node_destroy(tree);
@@ -724,7 +815,12 @@ static gint collapse_finalized_failure_paths(void)
         collapsedtime += path_total_elapsed(tail);
 
         // Cleanup all tasks on this retired tree.
-        g_node_traverse(head, G_PRE_ORDER, G_TRAVERSE_ALL, -1, abort_task_helper, NULL);
+        g_node_traverse(head,
+                        G_PRE_ORDER,
+                        G_TRAVERSE_ALL,
+                        -1,
+                        abort_task_helper,
+                        NULL);
 
         // Put it in the retired tree for cleanup by cleanup_tree()
         g_node_insert(retired, -1, head);
@@ -738,7 +834,9 @@ static gint collapse_finalized_failure_paths(void)
     g_assert_nonnull(finalnode->data);
 
     // Check this node is not already in place.
-    if (finalsuccess != finalnode && g_node_success(finalsuccess) != finalnode && g_node_success(finalsuccess) != finalnode->parent) {
+    if (finalsuccess != finalnode
+     && g_node_success(finalsuccess) != finalnode
+     && g_node_success(finalsuccess) != finalnode->parent) {
         GNode *head = g_node_success(finalsuccess);
         GNode *tail = finalnode->parent;
 
@@ -780,7 +878,12 @@ static gint collapse_finalized_failure_paths(void)
         collapsedtime += path_total_elapsed(tail);
 
         // Cleanup all tasks on this retired tree.
-        g_node_traverse(head, G_PRE_ORDER, G_TRAVERSE_ALL, -1, abort_task_helper, NULL);
+        g_node_traverse(head,
+                        G_PRE_ORDER,
+                        G_TRAVERSE_ALL,
+                        -1,
+                        abort_task_helper,
+                        NULL);
 
         // Put it in the retired tree for cleanup by cleanup_tree()
         g_node_insert(retired, -1, head);
@@ -812,8 +915,10 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
     // Print status messages if this is a terminal.
     if (isatty(STDOUT_FILENO)) {
             printf("treesize=%u, height=%u, unproc=%u, real=%.1fs, user=%.1fs, speedup=~%.1fs\r",
-                    g_node_n_nodes(tree, G_TRAVERSE_ALL) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
-                    g_node_max_height(tree) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
+                    g_node_n_nodes(tree, G_TRAVERSE_ALL)
+                        + g_node_n_nodes(retired, G_TRAVERSE_ALL),
+                    g_node_max_height(tree)
+                        + g_node_n_nodes(retired, G_TRAVERSE_ALL),
                     g_thread_pool_unprocessed(threadpool),
                     g_timer_elapsed(elapsed, NULL),
                     finalelapsed,
@@ -824,7 +929,8 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
         finaldepth = g_node_depth(finalnode);
         g_print("New finalized size: %lu (depth=%u) real=%.1fs, user=%.1fs, speedup=~%.1fs",
                 finaltask->size,
-                g_node_depth(finalnode) + g_node_n_nodes(retired, G_TRAVERSE_ALL),
+                g_node_depth(finalnode)
+                    + g_node_n_nodes(retired, G_TRAVERSE_ALL),
                 g_timer_elapsed(elapsed, NULL),
                 finalelapsed,
                 finalelapsed - g_timer_elapsed(elapsed, NULL));
@@ -832,4 +938,3 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
 
     return finaldepth;
 }
-

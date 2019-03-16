@@ -15,6 +15,7 @@ check:
 	@echo ok
 
 ifeq ($(shell uname),Darwin)
+    CPPFLAGS += -DSPLICE_GENERIC
     EXTRA = sendfile_generic.o splice_generic.o
 endif
 

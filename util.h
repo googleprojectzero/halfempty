@@ -26,10 +26,22 @@ gint g_unlinked_tmp(GError **error);
 gssize g_sendfile(gint outfd, gint infd, goffset offset, gsize count);
 gboolean g_sendfile_all(gint outfd, gint infd, goffset offset, gsize count);
 gssize g_splice(gint infd, goffset offset, gint outfd, gsize count);
-void g_log_null_handler(const gchar *log_domain, GLogLevelFlags log_level, const gchar *message, gpointer user_data);
+void g_log_null_handler(const gchar *log_domain,
+                        GLogLevelFlags log_level,
+                        const gchar *message,
+                        gpointer user_data);
 void g_print_quiet(const gchar *string);
 void g_clearline(void);
 gboolean generate_monitor_image(GNode *root);
+
+#ifdef SPLICE_GENERIC
+ssize_t splice(int fd_in,
+               off_t *off_in,
+               int fd_out,
+               off_t *off_out,
+               size_t len,
+               unsigned int flags);
+#endif
 
 #else
 # warning util.h included twice

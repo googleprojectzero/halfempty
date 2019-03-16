@@ -190,8 +190,8 @@ int main(int argc, char **argv)
 
         // The default for RLIMIT_NOFILE on macOS is insanely small (256), lets
         // turn it up to something reasonable.
-        if (sysctlbyname("kern.maxfilesperproc", &limfiles.rlim_cur, &length, NULL, 0) == 0) {
-            _warning("failed to query kern.maxfilesperproc");
+        if (sysctlbyname("kern.maxfilesperproc", &limfiles.rlim_cur, &length, NULL, 0) != 0) {
+            g_warning("failed to query kern.maxfilesperproc");
         }
 #else
         // Try to turn up the rlimit for RLIMIT_NOFILE, at least on some

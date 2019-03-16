@@ -84,7 +84,7 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
     g_assert_cmpint(pipefd, >, 0);
     g_assert_cmpint(datafd, >, 0);
 
-    g_debug("starting splice(%d, %lu, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
+    g_debug("starting splice(%d, %lld, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
 
     while (size > 0) {
         result = splice(datafd, &dataoffset, pipefd, NULL, size, 0);

@@ -84,14 +84,6 @@ Halfempty has preliminary macOS support using [homebrew](https://brew.sh/).
 Please use `brew install pkg-config glib` to install necessary dependencies, then `make` to build
 the main binary.
 
-Halfempty can use lots of processes and file descriptors, if you get errors about resource limits
-try increasing the limits like this:
-
-```
-$ ulimit -n $(sysctl -n kern.maxfilesperproc) 
-$ sudo sysctl kern.maxproc=2048
-```
-
 ### Usage
 
 First, create a shell script that when given your input on stdin, returns zero.
@@ -162,6 +154,8 @@ shown with `--help-all`, but here are the most commonly useful parameters.
 | `--generate-dot`                           | Halfempty can generate a dot file of the final tree state that you can inspect with xdot. |
 
 ### Examples
+
+There are more examples available in the wiki.
 
 #### Creating temporary files
 

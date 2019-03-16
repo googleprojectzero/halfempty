@@ -78,21 +78,21 @@ static void configure_child_limits(gpointer userdata)
 }
 
 // Splice data from a file descriptor into a pipe efficiently.
-static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoffset, gboolean closepipe)
+static gboolean write_pipe(gint pipefd,
+                           gint datafd,
+                           gsize size,
+                           goffset dataoffset,
+                           gboolean closepipe)
 {
     ssize_t result;
+
     g_assert_cmpint(pipefd, >, 0);
     g_assert_cmpint(datafd, >, 0);
-
-    g_debug("starting splice(%d, %lld, %d, NULL, %lu, 0);", datafd, dataoffset, pipefd, size);
 
     while (size > 0) {
         result = splice(datafd, &dataoffset, pipefd, NULL, size, 0);
 
-        // g_debug("splice(%d, %u, %d, NULL, %u, 0) => %d", datafd, dataoffset, pipefd, size, result);
-
         if (result < 0) {
-            g_debug("splice returned %ld, %m", result);
             break;
         } else {
             size -= result;
@@ -103,9 +103,10 @@ static gboolean write_pipe(gint pipefd, gint datafd, gsize size, goffset dataoff
         g_close(pipefd, NULL);
     }
 
-    // Probably broken pipe? I think this is okay, but should check that's the real reason
+    // Probably broken pipe? I think this is okay, but should check that's the
+    // real reason
     if (size != 0) {
-        g_debug("failed to splice all the data requested into pipe %ld remaining, %m", size);
+        g_debug("failed to splice all data into pipe, %ld remaining", size);
     }
 
     return false;
@@ -165,14 +166,19 @@ static gpointer timeout_watchdog_thread(gpointer param)
     g_assert_nonnull(data);
     g_assert_cmpint(data->child, >, 0);
 
-    g_debug("watchdog thread %p monitoring process %d", g_thread_self(), data->child);
+    g_debug("watchdog thread %p monitoring process %d",
+            g_thread_self(),
+            data->child);
 
     timeout = g_get_monotonic_time () + kMaxProcessTime * G_TIME_SPAN_SECOND;
 
     // Because g_cond_wait_until() can wakeup even if condition wasn't
     // signaled, check with waitid() to make sure it's not stopped.
     // If it has stopped, we need to 
-    while (waitid(P_PID, data->child, &info, WEXITED | WNOWAIT | WNOHANG) == 0) {
+    while (waitid(P_PID,
+                  data->child,
+                  &info,
+                  WEXITED | WNOWAIT | WNOHANG) == 0) {
 
         // Check we are here because of WNOHANG, of if pid really exited.
         if (info.si_pid == data->child) {
@@ -184,18 +190,21 @@ static gpointer timeout_watchdog_thread(gpointer param)
 
         // Wait for timeout, or main thread to tell us the child is dead.
         if (g_cond_wait_until(&data->condition, &mutex, timeout) == FALSE) {
-            g_debug("condition timeout, watchdog will kill pgrp -%d", data->child);
+            g_debug("condition timeout, watchdog will kill pgrp -%d",
+                    data->child);
 
             // Timeout occurred, send a SIGALRM to the whole pgrp.
             if (kill(-data->child, SIGALRM)  != 0) {
-                g_info("watchdog thread failed to kill child pgrp -%d", data->child);
+                g_info("watchdog thread failed to kill child pgrp -%d",
+                       data->child);
             }
 
             g_mutex_unlock(&mutex);
             g_mutex_clear(&mutex);
             return NULL;
         } else {
-            g_debug("condition signaled, exit watchdog for pid %d", data->child);
+            g_debug("condition signaled, exit watchdog for pid %d",
+                    data->child);
         }
 
         // The waitid() manual recommends zeroing si_pid to differentiate
@@ -277,7 +286,9 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
         // On macOS, waitid can fail with EINTR, I don't think this can happen
         // on Linux but it doesn't hurt to handle it.
         if (errno != EINTR) {
-            g_error("waitid for child %d failed, %s", *childpid, strerror(errno));
+            g_error("waitid for child %d failed, %s",
+                    *childpid,
+                    strerror(errno));
         }
 
         // Continue waiting...
@@ -294,16 +305,20 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 
     switch (info.si_code) {
         case CLD_EXITED:
-            g_debug("child %d exited with code %d", info.si_pid, info.si_status);
+            g_debug("child %d exited with code %d",
+                    info.si_pid,
+                    info.si_status);
 
             // The exit code becomes our result.
             result = info.si_status;
             break;
         case CLD_DUMPED:
-            g_debug("child %d dumped core, this might not be intentional, adjust limits?", *childpid);
+            g_debug("child %d dumped core, adjust limits?", *childpid);
             // fallthrough
         case CLD_KILLED:
-            g_debug("child %d was killed by signal %s", *childpid, strsignal(info.si_status));
+            g_debug("child %d was killed by signal %s",
+                    *childpid,
+                    strsignal(info.si_status));
             result = -1;
             break;
         case CLD_STOPPED:

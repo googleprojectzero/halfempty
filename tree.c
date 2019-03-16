@@ -120,6 +120,8 @@ gboolean build_bisection_tree(gint fd,
                       kCommandPath);
             g_message("for the original input (i.e. exitcode zero).");
             g_message("Try it yourself to verify it's working.");
+            
+            // See the FAQ for why cat is used and not redirection.
             g_message("Use a command like: `cat %s | %s || echo failed`",
                       kInputFile,
                       kCommandPath);

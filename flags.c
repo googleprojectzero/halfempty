@@ -20,9 +20,11 @@
 
 #include "flags.h"
 
-// This file is part of halfempty - a fast, parallel testcase minimization tool.
+// This file is part of halfempty - a fast, parallel testcase minimization
+// tool.
 //
-// This file contains global knobs that can be controlled via command line options.
+// This file contains global knobs that can be controlled via command line
+// options.
 //
 
 // Maximum number of unprocessed workunits before we stop generating more.
@@ -71,14 +73,18 @@ gint kKillFailedWorkersSignal = SIGTERM;
 // If a process takes longer than this, we will send it SIGALRM.
 gint kMaxProcessTime = 0;
 
-// If you want to debug halfempty, then I can generate a dot file you can browse in xdot.
+// If you want to debug halfempty, then I can generate a dot file you can
+// browse in xdot.
 gboolean kGenerateDotFile = false;
 
-// For real workloads, dot files can get too big to render. I can simplify them by folding TASK_STATUS_DISCARDED branches.
+// For real workloads, dot files can get too big to render. I can simplify them
+// by folding TASK_STATUS_DISCARDED branches.
 gboolean kSimplifyDotFile = false;
 
-// Rather than exit when all strategies are completed, halfempty can make random changes to try and escape local minima.
-// We will still generate normal output, but then will keep trying to improve that until interrupted.
+// Rather than exit when all strategies are completed, halfempty can make
+// random changes to try and escape local minima.
+// We will still generate normal output, but then will keep trying to improve
+// that until interrupted.
 gboolean kContinueSearch = false;
 
 // Sometimes simplifying a file can shake out new minimization paths, so we can

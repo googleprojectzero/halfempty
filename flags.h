@@ -17,7 +17,8 @@
 #ifndef __FLAGS_H
 #define __FLAGS_H
 
-// This file is part of halfempty - a fast, parallel testcase minimization tool.
+// This file is part of halfempty - a fast, parallel testcase minimization
+// tool.
 
 #include <sys/resource.h>
 
@@ -53,7 +54,6 @@ extern gboolean kSilenceChildStderr;
 extern gboolean kMonitorMode;
 extern gchar *kMonitorTmpImageFilename;
 extern gchar *kMonitorTmpHtmlFilename;
-
 
 #else
 # warning flags.h included twice

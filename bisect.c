@@ -62,8 +62,14 @@ static gboolean kSkipEmpty = false;
 static gint kSkipThreshold = 0;
 
 static const GOptionEntry kBisectOptions[] = {
-    { "bisect-skip-empty", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kSkipEmpty, "Don't try to test empty input.", NULL },
-    { "bisect-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kSkipThreshold, "Skip truncated chunks smaller than this.", "bytes" },
+    { "bisect-skip-empty", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+            &kSkipEmpty,
+            "Don't try to test empty input.",
+            NULL },
+    { "bisect-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT,
+            &kSkipThreshold,
+            "Skip truncated chunks smaller than this.",
+            "bytes" },
     { NULL },
 };
 
@@ -77,7 +83,8 @@ static const gchar kDescription[] =
 //    determine parameters like what offset we're at, our offset will be
 //    parent->offset += increment.
 //  * "source" is the previous *successful* node in the tree, where we get our
-//    data from. Parent cannot be the source unless it was successful, because it
+//    data from. Parent cannot be the source unless it was successful, because
+//    it
 //    might have had data removed we need.
 //
 // The source node could be some distance towards the root node.
@@ -97,7 +104,7 @@ static task_t * strategy_bisect_data(GNode *node)
 
     // If this is the root node, we're being called to initialize a new tree.
     if (parentstatus == NULL && G_NODE_IS_ROOT(node)) {
-        g_debug("initializing a new root node %p, size %lu", node, parent->size);
+        g_debug("initializing a new root node size %lu", parent->size);
 
         // If this was already set, then something has gone wrong.
         g_assert_cmpint(g_node_n_children(node), ==, 0);
@@ -120,7 +127,7 @@ static task_t * strategy_bisect_data(GNode *node)
     // Check if we've finished a chunksize, which means we need to reset offset
     // to zero with a smaller chunksize. We continue until chunksize is zero.
     if (parentstatus->offset + parentstatus->chunksize > parent->size) {
-        g_info("reached the end of cycle (offset %lu + chunksize %lu > size %lu), starting next cycle",
+        g_info("reached end of cycle (offset %lu + chunksize %lu > size %lu)",
                parentstatus->offset,
                childstatus->chunksize,
                parent->size);
@@ -132,19 +139,22 @@ static task_t * strategy_bisect_data(GNode *node)
                 childstatus->offset,
                 childstatus->offset + childstatus->chunksize);
 
-        //  *If* the parent succeeded, then we increment offset, otherwise we don't need to.
+        // *If* the parent succeeded, then we increment offset, otherwise we
+        // don't need to.
         // TODO: what if offset now >= size?
         childstatus->offset += childstatus->chunksize;
     } else {
-        g_debug("parent succeeded, not incrementing offset from %lu", childstatus->offset);
+        g_debug("parent succeeded, not incrementing offset from %lu",
+                childstatus->offset);
     }
 
     if (childstatus->chunksize == 0) {
-        g_info("final cycle complete, cannot start a new cycle");
+        g_info("final cycle complete.");
         goto nochild;
     }
 
-    // Traverse up the tree to find the first SUCCESS node, we base our data on that.
+    // Traverse up the tree to find the first SUCCESS node, we base our data on
+    // that.
     if (source->status != TASK_STATUS_SUCCESS) {
         for (GNode *current = node; current; current = current->parent) {
             source = current->data;
@@ -154,17 +164,22 @@ static task_t * strategy_bisect_data(GNode *node)
         }
 
         // The root node has TASK_STATUS_SUCCESS, so it is impossible that we
-        // can't find a node with TASK_STATUS_SUCCESS unless the tree is corrupt.
+        // can't find a node with TASK_STATUS_SUCCESS unless the tree is
+        // corrupt.
         g_assert(source);
     }
 
-    // The source could be empty if the empty file worked, just give up I guess?
+    // The source could be empty if the empty file worked, just give up I
+    // guess?
     if (source->size == 0) {
         g_info("empty file succeeded, no further reduction possible");
         goto nochild;
     }
 
-    g_debug("creating task for %p with parent %p and source %p", node, parent, source);
+    g_debug("creating task for %p with parent %p and source %p",
+            node,
+            parent,
+            source);
 
     // OK, we need to access this fd, so acquire the lock.
     g_mutex_lock(&source->mutex);
@@ -183,7 +198,10 @@ static task_t * strategy_bisect_data(GNode *node)
         goto nochildunlock;
 
     // Initialize the new child with everything up to offset.
-    if (g_sendfile_all(child->fd, source->fd, 0, childstatus->offset) == false) {
+    if (g_sendfile_all(child->fd,
+                       source->fd,
+                       0,
+                       childstatus->offset) == false) {
         g_error("sendfile failed while trying to construct new file, %m");
         goto nochildunlock;
     }
@@ -194,12 +212,16 @@ static task_t * strategy_bisect_data(GNode *node)
         if (g_sendfile_all(child->fd,
                            source->fd,
                            childstatus->offset + childstatus->chunksize,
-                           source->size - childstatus->chunksize - childstatus->offset) == false) {
+                           source->size
+                                - childstatus->chunksize
+                                - childstatus->offset) == false) {
             g_error("sendfile failed while trying to construct new file, %m");
             goto nochildunlock;
         }
 
-        child->size += source->size - childstatus->chunksize - childstatus->offset;
+        child->size += source->size
+                        - childstatus->chunksize
+                        - childstatus->offset;
     }
 
     g_assert_cmpuint(child->size, ==, g_file_size(child->fd));

@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <glib.h>
 
+#ifdef SENDFILE_GENERIC
 ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+#endif
 
 ssize_t splice(int fd_in,
                off_t *off_in,

@@ -43,6 +43,10 @@ ssize_t splice(int fd_in,
                unsigned int flags);
 #endif
 
+#ifdef SENDFILE_GENERIC
+ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+#endif
+
 #else
 # warning util.h included twice
 #endif

@@ -18,6 +18,7 @@ verify.in:
 
 math.in:
 	seq -8192 8192 | shuf | head -1024 | tr '\n' '+' | sed 's/$$/0/' > $@
+	echo >> $@
 
 %.in:
 	shuf < /usr/share/dict/words > $@

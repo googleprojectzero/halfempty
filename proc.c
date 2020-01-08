@@ -55,7 +55,7 @@ static void configure_child_limits(gpointer userdata)
     }
 
     // Make sure we create a new pgrp so that we can kill all subprocesses.
-    setpgrp();
+    setpgid(0, 0);
 
 #ifdef __linux__
     // Try to cleanup if we get killed.

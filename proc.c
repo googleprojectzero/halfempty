@@ -50,7 +50,7 @@ static void configure_child_limits(gpointer userdata)
     // Some of these may fail, not sure what to do.
     for (gint i = 0; i < RLIMIT_NLIMITS; i++) {
         if (setrlimit(i, &kChildLimits[i]) == -1) {
-            g_critical("a call to setrlimit for %u failed(), %m", i);
+            g_critical("a call to setrlimit for %u failed(), %s", i, strerror(errno));
         }
     }
 

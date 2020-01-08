@@ -129,7 +129,7 @@ gboolean generate_dot_tree(GNode *root, gchar *filename)
     FILE *out = fopen(filename, "w");
 
     if (!out) {
-        g_warning("failed to open file `%s` to save dot file, %m", filename);
+        g_warning("failed to open file `%s` to save dot file, %s", filename, strerror(errno));
         return false;
     }
 

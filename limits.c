@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -127,7 +128,7 @@ static void __attribute__((constructor)) init_child_limits()
 
     for (gint i = 0; i < RLIMIT_NLIMITS; i++) {
         if (getrlimit(i, &kChildLimits[i]) != 0) {
-            g_warning("failed to getrlimit for %u, %m", i);
+            g_warning("failed to getrlimit for %u, %s", i, strerror(errno));
         }
 
         g_debug("Configured rlimit %s => { %llu, %llu }",

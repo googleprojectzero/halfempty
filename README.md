@@ -70,7 +70,7 @@ On RedHat systems, try `glib2-devel`.
 
 Just type `make` to build the main binary.
 
-The `--monitor` mode feature requires the `graphiz` package and a web browser.
+The `--monitor` mode feature requires the `graphviz` package and a web browser.
 
 The author has tested the following distributions:
 

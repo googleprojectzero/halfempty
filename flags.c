@@ -100,6 +100,9 @@ gboolean kQuiet = false;
 // When a new, smaller tree is found, write-out to 'kOutputFile' as we go
 gboolean kGenerateIntermediateFile = false;
 
+// If true, call 'setvbuf' to ensure that stdout is not line buffered
+gboolean kLineBuffered = false;
+
 // Verify the input task is sane.
 gboolean kVerifyInput = true;
 

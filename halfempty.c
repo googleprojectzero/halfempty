@@ -177,7 +177,7 @@ int main(int argc, char **argv)
     kProcessThreads = g_get_num_processors() + 1;
 
     // Setup a print handler that respects the kQuiet parameter.
-    g_set_print_handler(g_print_quiet);
+    g_set_print_handler(g_message_quiet);
 
     threadopts  = g_option_group_new("threads",
                                      "Fine tune performance options:",
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 
         // Iterate over all available strategies.
         for (gint k = 0; k < kNumStrategies; k++) {
-            g_print("Input file \"%s\" is now %lu bytes, starting strategy \"%s\"...",
+            g_message("Input file \"%s\" is now %lu bytes, starting strategy \"%s\"...",
                     kInputFile,
                     g_file_size(fd),
                     kStrategyList[k].name);
@@ -315,25 +315,25 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
 
-            g_print("");
+            g_message("");
 
-            g_print("Strategy \"%s\" complete, output %lu bytes",
+            g_message("Strategy \"%s\" complete, output %lu bytes",
                     kStrategyList[k].name,
                     g_file_size(fd));
         }
 
         if (kIterateUntilStable && g_file_size(fd) < originalsize) {
-            g_print("Minimization succeeded, testing if minimization is stable...\n");
+            g_message("Minimization succeeded, testing if minimization is stable...\n");
             continue;
         } else if (kIterateUntilStable) {
-            g_print("Minimization stable, all work done.\n");
+            g_message("Minimization stable, all work done.\n");
         }
 
         // All done.
         break;
     }
 
-    g_print("All work complete, generating output %s (size: %lu)",
+    g_message("All work complete, generating output %s (size: %lu)",
             kOutputFile,
             g_file_size(fd));
 

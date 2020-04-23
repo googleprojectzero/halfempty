@@ -113,7 +113,7 @@ gboolean build_bisection_tree(gint fd,
 
     // Verify the input task is sane.
     if (kVerifyInput) {
-        g_print("Verifying the original input executes successfully... (skip with --noverify)");
+        g_message("Verifying the original input executes successfully... (skip with --noverify)");
         process_execute_jobs(tree);
         if (root->status != TASK_STATUS_SUCCESS) {
             g_message("This program expected `%s` to return successfully",
@@ -127,7 +127,7 @@ gboolean build_bisection_tree(gint fd,
                       kCommandPath);
             return false;
         } else {
-            g_print("The original input file succeeded after %.1f seconds.",
+            g_message("The original input file succeeded after %.1f seconds.",
                     g_timer_elapsed(root->timer, NULL));
         }
     } else {
@@ -306,7 +306,7 @@ gboolean build_bisection_tree(gint fd,
         continue;
 
     finalized:
-        g_print("Reached the end of our path through tree, "
+        g_message("Reached the end of our path through tree, "
                 "all nodes were finalized");
 
         // Unlock the tree and let threadpool workers finish.
@@ -604,7 +604,7 @@ static void show_tree_statistics(void)
         // I don't want the descriptor, just the filename.
         g_close(g_mkstemp(dotfile), NULL);
 
-        g_print("Generating DOT file of final tree to %s (view it with xdot)...",
+        g_message("Generating DOT file of final tree to %s (view it with xdot)...",
                 dotfile);
 
         generate_dot_tree(tree, dotfile);
@@ -624,12 +624,12 @@ static void show_tree_statistics(void)
                     analyze_tree_helper,
                     &stats);
 
-    g_print("%u nodes failed, %u worked, %u discarded, %u collapsed",
+    g_message("%u nodes failed, %u worked, %u discarded, %u collapsed",
             stats.failure,
             stats.success,
             stats.discarded,
             g_node_n_nodes(retired, G_TRAVERSE_ALL));
-    g_print("%0.3f seconds of compute was required for final path",
+    g_message("%0.3f seconds of compute was required for final path",
             stats.elapsed);
 
     g_mutex_unlock(&treelock);
@@ -929,7 +929,7 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
 
     if (g_node_depth(finalnode) > finaldepth) {
         finaldepth = g_node_depth(finalnode);
-        g_print("New finalized size: %lu (depth=%u) real=%.1fs, user=%.1fs, speedup=~%.1fs",
+        g_message("New finalized size: %lu (depth=%u) real=%.1fs, user=%.1fs, speedup=~%.1fs",
                 finaltask->size,
                 g_node_depth(finalnode)
                     + g_node_n_nodes(retired, G_TRAVERSE_ALL),

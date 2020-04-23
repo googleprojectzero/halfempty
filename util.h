@@ -30,7 +30,7 @@ void g_log_null_handler(const gchar *log_domain,
                         GLogLevelFlags log_level,
                         const gchar *message,
                         gpointer user_data);
-void g_print_quiet(const gchar *string);
+void g_message_quiet(const gchar *string);
 void g_clearline(void);
 gboolean generate_monitor_image(GNode *root);
 

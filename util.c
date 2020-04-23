@@ -55,7 +55,7 @@ gsize g_file_size(gint fd)
     return buf.st_size;
 }
 
-void g_print_quiet(const gchar *string)
+void g_message_quiet(const gchar *string)
 {
     if (!kQuiet) {
         g_clearline();

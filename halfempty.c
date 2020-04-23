@@ -141,6 +141,9 @@ static const GOptionEntry kStandardOptions[] = {
     { "monitor", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kMonitorMode,
         "Monitor progress in your web browser (default=false).",
         NULL },
+    { "gen-intermediate", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kGenerateIntermediateFile,
+        "Generate intermediate (reduced) files while processing (default=false).",
+        NULL },
     { NULL },
 };
 

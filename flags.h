@@ -45,6 +45,7 @@ extern gboolean kContinueSearch;
 extern gboolean kIterateUntilStable;
 extern guint kVerbosity;
 extern gboolean kQuiet;
+extern gboolean kGenerateIntermediateFile;
 extern gboolean kVerifyInput;
 extern guint kSleepSeconds;
 extern struct rlimit kChildLimits[RLIMIT_NLIMITS];

@@ -97,6 +97,9 @@ guint kVerbosity = 0;
 // Minimize all informational messages, try to only print errors.
 gboolean kQuiet = false;
 
+// When a new, smaller tree is found, write-out to 'kOutputFile' as we go
+gboolean kGenerateIntermediateFile = false;
+
 // Verify the input task is sane.
 gboolean kVerifyInput = true;
 

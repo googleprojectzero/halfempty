@@ -46,6 +46,7 @@ static gboolean root_path_finalized(GNode *node);
 static GNode * find_finalized_node(GNode *root, gboolean success);
 static gdouble path_total_elapsed(GNode *node);
 static gint print_status_message(GTimer *elapsed, gint finaldepth);
+static void generate_itermediate_file(gint finaldepth);
 static gint collapse_finalized_failure_paths(void);
 
 // This binary tree represents our path through the testcases we've generated
@@ -159,6 +160,9 @@ gboolean build_bisection_tree(gint fd,
 
         // Now that we have the lock, the tree is stable until we release it.
         g_debug("generator thread obtained treelock, finding next leaf");
+
+        // Generate intermediate file (do this _before_ updating the final depth!)
+        generate_itermediate_file(finaldepth);
 
         // Print statistics on current tree state.
         // Note that "finalized" means that the task itself and every node
@@ -939,4 +943,25 @@ static gint print_status_message(GTimer *elapsed, gint finaldepth)
     }
 
     return finaldepth;
+}
+
+static void generate_itermediate_file(gint finaldepth)
+{
+    GNode  *finalnode;
+    task_t *finaltask;
+    gint output;
+
+    if (kGenerateIntermediateFile == false)
+        return;
+
+    // Find the deepest node, which was successful
+    finalnode    = find_finalized_node(tree, true);
+    finaltask    = finalnode->data;
+
+    // If this new final is 'deeper', write it out
+    if (g_node_depth(finalnode) > finaldepth) {
+        output = g_open(kOutputFile, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        g_sendfile_all(output, finaltask->fd, 0, g_file_size(finaltask->fd));
+        g_close(output, NULL);
+    }
 }

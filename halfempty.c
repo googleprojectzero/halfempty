@@ -144,6 +144,9 @@ static const GOptionEntry kStandardOptions[] = {
     { "gen-intermediate", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kGenerateIntermediateFile,
         "Generate intermediate (reduced) files while processing (default=false).",
         NULL },
+    { "line-buffered", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &kLineBuffered,
+        "Ensure that stdout is only line buffered (default=false).",
+        NULL },
     { NULL },
 };
 
@@ -178,6 +181,12 @@ int main(int argc, char **argv)
 
     // Setup some default options.
     kProcessThreads = g_get_num_processors() + 1;
+
+    // ensure that we only buffer stdout up to one line
+    if (kLineBuffered == true)
+    {
+        setvbuf(stdout, NULL, _IOLBF, 0);
+    }
 
     // Setup a print handler that respects the kQuiet parameter.
     g_set_print_handler(g_print_quiet);

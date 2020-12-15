@@ -152,6 +152,7 @@ shown with `--help-all`, but here are the most commonly useful parameters.
 | `--output=filename`                        | By default your output is saved to `halfempty.out`, but you can save it anywhere you like. |
 | `--noverify`                               | If tests are very slow, you can skip the initial verification and go straight to parallelization.<br>(Faster, but not recommended). |
 | `--generate-dot`                           | Halfempty can generate a dot file of the final tree state that you can inspect with xdot. |
+| `--gen-intermediate`                       | Save the best result as it's found, so you don't lose your progress if halfempty is interrupted. |
 
 ### Examples
 
@@ -230,12 +231,25 @@ or `--limit RLIMIT_CPU=10` to enforce a hard limit.
 
 **A**. It's significantly faster in real time (i.e. wall clock time), that's what counts!
 
-**Q**. **I have a very large input that takes too long to finish, suggestions?**
-**A**. If you don't mind halfempty being less thorough, try using
-`--zero-skip-threshold=128 --bisect-skip-threshold=128`. The default is to
-continue removing chunks until they're as small as possible, but that can be
-time consuming. If it doesn't have to be perfect and you want it fast, a
-reasonable value would be around 1% of the filesize.
+**Q**. **I have a very large input, what do I need to know?**
+**A**. Halfempty is less thorough by default on very large inputs that don't
+seem to minimize well. Removing each byte from multi-gigabyte inputs just takes
+too long, even when run in parallel.
+
+If you really *want* halfempty to be thorough, you can do this:
+
+`$ halfempty --bisect-skip-multiplier=0 --zero-skip-multiplier=0 --stable --gen-intermediate harness.sh input.bin`
+
+* `--bisect-skip-multiplier=0` and `--zero-skip-multiplier=0` means to try removing every single byte.
+* `--stable` means to keep retrying minimization until it no further removals work.
+* `--gen-intermediate` means to save the best result as it's found, so you
+won't lose your work if you change your mind.
+
+On the other hand, if you just want halfempty to be faster and don't care if
+it's not very thorough, you can do the opposite. Something like this:
+
+`$ halfempty --bisect-skip-multiplier=0.1 --zero-skip-multiplier=0.1 harness.sh input.bin`
+
 
 ### BUGS
 

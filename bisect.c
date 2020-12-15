@@ -58,18 +58,13 @@ typedef struct {
 } bisect_t;
 
 // Configurable Knobs.
-static gboolean kSkipEmpty = false;
-static gint kSkipThreshold = 0;
+static gdouble kSkipMultiplier = 0.0001;
 
 static const GOptionEntry kBisectOptions[] = {
-    { "bisect-skip-empty", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
-            &kSkipEmpty,
-            "Don't try to test empty input.",
-            NULL },
-    { "bisect-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT,
-            &kSkipThreshold,
-            "Skip small chunks, faster but less thorough (try around 1%% of filesize)"
-            "bytes" },
+    { "bisect-skip-multiplier", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
+            &kSkipMultiplier,
+            "Smallest chunk multiple, increase for faster but less thorough (default is 0.0001)"
+            "multiplier" },
     { NULL },
 };
 
@@ -148,7 +143,9 @@ static task_t * strategy_bisect_data(GNode *node)
                 childstatus->offset);
     }
 
-    if (childstatus->chunksize <= kSkipThreshold) {
+    // For very large files, going all the way down to 1 byte chunks is just too slow,
+    // so by default we only go down to 0.01% of the size.
+    if (childstatus->chunksize <= (gsize)(kSkipMultiplier * child->size)) {
         g_info("final cycle complete.");
         goto nochild;
     }

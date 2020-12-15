@@ -45,16 +45,16 @@ typedef struct {
 
 // Configurable Knobs.
 static gchar kZeroCharacter = 0;
-static gint kZeroSkipThreshold = 0;
+static gdouble kZeroSkipMultiplier = 0.0001;
 
 static const GOptionEntry kZeroOptions[] = {
     { "zero-char", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kZeroCharacter,
         "Use this byte value when simplifying (0-255) (default=0).",
         "byte" },
-    { "zero-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT,
-        &kZeroSkipThreshold,
-        "Skip small chunks, faster but less thorough (try around 1%% of filesize)",
-        "bytes" },
+    { "zero-skip-multiplier", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
+        &kZeroSkipMultiplier,
+        "Smallest chunk multiple, increase for faster but less thorough (default is 0.0001)"
+        "multiplier" },
     { NULL },
 };
 
@@ -126,10 +126,13 @@ static task_t * strategy_zero_data(GNode *node)
     }
 
     // Check if this is the end of a cycle.
-    if (childstatus->chunksize <= kZeroSkipThreshold) {
+    // For very large files, going all the way down to 1 byte chunks is just too slow,
+    // so by default we only go down to 0.01% of the size.
+    if (childstatus->chunksize <= (gsize)(kZeroSkipMultiplier * child->size)) {
         g_info("final cycle complete, cannot start a new cycle");
         goto nochild;
     }
+
   restart:
 
     // Here is the problem, it's pointless trying to zero out chunks we've

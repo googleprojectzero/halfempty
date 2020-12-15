@@ -45,11 +45,16 @@ typedef struct {
 
 // Configurable Knobs.
 static gchar kZeroCharacter = 0;
+static gint kZeroSkipThreshold = 0;
 
 static const GOptionEntry kZeroOptions[] = {
     { "zero-char", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &kZeroCharacter,
         "Use this byte value when simplifying (0-255) (default=0).",
         "byte" },
+    { "zero-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT,
+        &kZeroSkipThreshold,
+        "Skip small chunks, faster but less thorough (try around 1%% of filesize)",
+        "bytes" },
     { NULL },
 };
 
@@ -121,7 +126,7 @@ static task_t * strategy_zero_data(GNode *node)
     }
 
     // Check if this is the end of a cycle.
-    if (childstatus->chunksize == 0) {
+    if (childstatus->chunksize <= kZeroSkipThreshold) {
         g_info("final cycle complete, cannot start a new cycle");
         goto nochild;
     }

@@ -68,7 +68,7 @@ static const GOptionEntry kBisectOptions[] = {
             NULL },
     { "bisect-skip-threshold", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_INT,
             &kSkipThreshold,
-            "Skip truncated chunks smaller than this.",
+            "Skip small chunks, faster but less thorough (try around 1%% of filesize)"
             "bytes" },
     { NULL },
 };
@@ -148,7 +148,7 @@ static task_t * strategy_bisect_data(GNode *node)
                 childstatus->offset);
     }
 
-    if (childstatus->chunksize == 0) {
+    if (childstatus->chunksize <= kSkipThreshold) {
         g_info("final cycle complete.");
         goto nochild;
     }

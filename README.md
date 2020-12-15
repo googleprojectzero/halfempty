@@ -230,6 +230,13 @@ or `--limit RLIMIT_CPU=10` to enforce a hard limit.
 
 **A**. It's significantly faster in real time (i.e. wall clock time), that's what counts!
 
+**Q**. **I have a very large input that takes too long to finish, suggestions?**
+**A**. If you don't mind halfempty being less thorough, try using
+`--zero-skip-threshold=128 --bisect-skip-threshold=128`. The default is to
+continue removing chunks until they're as small as possible, but that can be
+time consuming. If it doesn't have to be perfect and you want it fast, a
+reasonable value would be around 1% of the filesize.
+
 ### BUGS
 
 * If your program intercepts signals or creates process groups, it might be difficult to cleanup.

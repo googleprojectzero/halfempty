@@ -1,6 +1,0 @@
-2018-10-17 0.20
-* Disable the default mcheck() errors in children to avoid spamming the console.
-* Initial MacOS support by Matthew Fernandez @smattr.
-* Improve sendfile() robustness.
-* Improve performance of very large trees by pruning them if they get too big.
-* Fix support for Windows Subsystem on Linux, (even to run Windows executables).

@@ -43,7 +43,7 @@
 // Commandline options parsing and main() function.
 //
 
-#define HALFEMPTY_VERSION_STRING "0.30"
+#define HALFEMPTY_VERSION_STRING "0.40"
 
 void signal_handler(int sig, siginfo_t *info, void *ucontext)
 {

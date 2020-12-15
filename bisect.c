@@ -63,7 +63,7 @@ static gdouble kSkipMultiplier = 0.0001;
 static const GOptionEntry kBisectOptions[] = {
     { "bisect-skip-multiplier", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
             &kSkipMultiplier,
-            "Smallest chunk multiple, increase for faster but less thorough (default is 0.0001)"
+            "Smallest chunk multiple, higher is faster but less thorough (default=0.0001).",
             "multiplier" },
     { NULL },
 };

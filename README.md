@@ -232,6 +232,7 @@ or `--limit RLIMIT_CPU=10` to enforce a hard limit.
 **A**. It's significantly faster in real time (i.e. wall clock time), that's what counts!
 
 **Q**. **I have a very large input, what do I need to know?**
+
 **A**. Halfempty is less thorough by default on very large inputs that don't
 seem to minimize well. Removing each byte from multi-gigabyte inputs just takes
 too long, even when run in parallel.
@@ -248,8 +249,9 @@ won't lose your work if you change your mind.
 On the other hand, if you just want halfempty to be faster and don't care if
 it's not very thorough, you can do the opposite. Something like this:
 
-`$ halfempty --bisect-skip-multiplier=0.1 --zero-skip-multiplier=0.1 harness.sh input.bin`
+`$ halfempty --bisect-skip-multiplier=0.01 --zero-skip-multiplier=0.01 harness.sh input.bin`
 
+The reasonable range for the multiplier is `0` to `0.1`.
 
 ### BUGS
 

@@ -53,7 +53,7 @@ static const GOptionEntry kZeroOptions[] = {
         "byte" },
     { "zero-skip-multiplier", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
         &kZeroSkipMultiplier,
-        "Smallest chunk multiple, increase for faster but less thorough (default is 0.0001)"
+        "Smallest chunk multiple, higher is faster but less thorough (default=0.0001).",
         "multiplier" },
     { NULL },
 };

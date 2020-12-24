@@ -17,8 +17,8 @@
 # flag: --stable
 
 # create a temporary file
-declare tempfile=`mktemp`
-declare result=1
+tempfile=`mktemp`
+result=1
 
 # cleanup on exit
 trap 'rm -f ${tempfile}; exit ${result}' EXIT TERM ALRM
@@ -29,7 +29,7 @@ cat > ${tempfile}
 # make up some complicated rules
 test $(grep -c A ${tempfile}) -ge 8 || exit                     # more than 8 lines with 'A'
 test $(grep -c ^puppy$ ${tempfile}) -eq 1 || exit               # must contain a puppy
-test $(sort ${tempfile} | uniq -d | wc -l) -eq 0  || exit    # no repeats
+test $(sort ${tempfile} | uniq -d | wc -l) -eq 0  || exit       # no repeats
 
 # looks good
-let result=0
+result=0

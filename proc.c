@@ -69,11 +69,6 @@ static void configure_child_limits(gpointer userdata)
     if (kSleepSeconds)
         g_usleep(kSleepSeconds * G_USEC_PER_SEC);
 
-    // glibc writes error messages to /dev/tty, which spams the console. This
-    // disables that error message, but don't overwrite any setting that the
-    // user has set.
-    setenv("MALLOC_CHECK_", "2", false);
-
     return;
 }
 
@@ -226,6 +221,7 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
     gint pipein;
     gint result;
     gint flags;
+    gchar **envp;
     gchar *argv[] = {
         kCommandPath,
         NULL,
@@ -244,10 +240,21 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
     if (kSilenceChildStderr)
         flags |= G_SPAWN_STDERR_TO_DEV_NULL;
 
+    // Make any necessary changes to the childs environment.
+    envp = g_get_environ();
+
+    // glibc write mcheck() errors directly to /dev/tty, which spams the
+    // console with error messages if a user is trying to minimize a heap
+    // corruption bug.
+    //
+    // This disables that error message, unless the user has already configured
+    // it to some other value.
+    envp = g_environ_setenv(envp, "MALLOC_CHECK_", "2", false);
+
     // Create child process to verify data.
     if (g_spawn_async_with_pipes(NULL,
                                  argv,
-                                 NULL,
+                                 envp,
                                  flags,
                                  configure_child_limits,
                                  NULL,
@@ -329,5 +336,6 @@ gint submit_data_subprocess(gint inputfd, gsize inputlen, GPid *childpid)
 
     // Clean up child.
     g_clear_error(&error);
+    g_strfreev(envp);
     return result;
 }
